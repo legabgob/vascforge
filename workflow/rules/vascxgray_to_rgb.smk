@@ -2,8 +2,9 @@
 from snakemake.io import glob_wildcards
 
 # adjust pattern to your actual files
-SAMPLES, = glob_wildcards("gray_labels/{sample}.png")
-DATASETS = ["FIVES/train/seg/", "Fundus-AVSeg"]
+DATASETS, SAMPLES = glob_wildcards(
+    "/HDD/data/relabelling-project/{dataset}/seg_legacy/av/{sample}.png"
+)
 
 rule gray_to_rgb:
     """

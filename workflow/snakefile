@@ -2,4 +2,4 @@ include ./rules/vascxgray_to_rgb.smk
 
 rule all:
     input:
-        expand(rules.vascxgray_to_rgb.output[0], dataset=DATASETS, sample=SAMPLES)
+        expand(rules.vascxgray_to_rgb.output, dataset=DATASETS, sample=SAMPLES,)
