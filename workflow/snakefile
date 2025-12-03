@@ -1,5 +1,12 @@
-include ./rules/vascxgray_to_rgb.smk
+include: "./rules/vascxgray_to_rgb.smk"
+include: "./rules/refinement.smk"
 
 rule all:
     input:
-        expand(rules.vascxgray_to_rgb.output, dataset=DATASETS, sample=SAMPLES,)
+        expand(rules.vascxgray_to_rgb.output, dataset=DATASETS, sample=SAMPLES,),
+        expand(
+            rules.refinement.output.refined,
+            dataset=DATASETS,
+            res=RESOLUTIONS,
+            k=k,
+        ),
