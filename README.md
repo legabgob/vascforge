@@ -3,10 +3,6 @@
 Snakemake-based pipeline for **refining retinal vessel artery/vein (A/V) labels**,  
 computing quality metrics, and preparing datasets for downstream analysis.
 
-The code implements the refinement and evaluation parts of the project described in:
-
-> *Reliable retinal phenotyping: error correction, genetic discovery, graph-based diagnosis* – G. Chiche (2025)
-
 At a high level:
 
 1. Colour fundus images are segmented with an external model (e.g. **VascX**) to obtain initial vessel + A/V maps.
