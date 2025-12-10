@@ -72,5 +72,8 @@ rule all:
             dataset=["Fundus-AVSeg"],
             res=RESOLUTIONS,
             k=k,
-        )
+        ),
+
+    log:
+        "logs/all.log"
 
