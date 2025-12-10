@@ -1,7 +1,7 @@
 # rules/downsample.smk
 
 # Set these to whatever makes sense in your project
-KINDS = ["segs", "masks"]
+KINDS = ["segs_converted", "roi_masks"]
 WIDTHS = [576, 1024]
 
 rule downsample:
@@ -10,7 +10,7 @@ rule downsample:
     """
     input:
         # Directory containing the original images
-        in_dir = "data/{dataset}/segs_converted"
+        in_dir = "data/{dataset}/{kind}/"
     output:
         # Directory to store the downsampled images
         out_dir = directory("data/{dataset}/downsampled/{width}px/{kind}/")

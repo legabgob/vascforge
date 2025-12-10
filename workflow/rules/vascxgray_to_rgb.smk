@@ -25,8 +25,8 @@ for p in ROOT.rglob("seg_legacy/av/*.png"):
     input_map[(dataset, sample)] = str(p)
 
 PAIRS = sorted(input_map.keys())
-GRAY_DATASETS = sorted({d for d, _ in PAIRS})
-GRAY_SAMPLES = sorted({s for _, s in PAIRS})
+DATASETS = sorted({d for d, _ in PAIRS})
+SAMPLES = sorted({s for _, s in PAIRS})
 
 
 def find_gray_av_input(wc):
