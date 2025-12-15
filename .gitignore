@@ -216,7 +216,9 @@ __marimo__/
 # Snakemake cluster / job submission logs
 logs/
 benchmark/
-data/
+data/*
+!data/weights/
+!data/weights/**
 
 # Conda environments created by Snakemake
 .snakemake/conda/
