@@ -1,0 +1,6 @@
+legacy_root: "/HDD/data/relabelling-project"
+datasets:
+  - "Fundus-AVSeg"
+  - "FIVES"
+  - "leuven-haifa"
+

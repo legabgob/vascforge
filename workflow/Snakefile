@@ -1,6 +1,7 @@
 DATASETS = ["FIVES", "Fundus-AVSeg", "leuven-haifa"]
 RESOLUTIONS = ["576", "1024"]
 k = range(3, 9)
+configfile: "config.yaml"
 
 # 1) Include all rule files (order here doesn't really matter,
 #    but we keep it in logical pipeline order for sanity)

@@ -59,3 +59,9 @@ scripts/
 git lfs install 
 git clone git@github.com:legabgob/segmentation-relabelling.git
 ```
+
+## Usage
+Update path where segmentations to be refined in `config.yaml`
+```text
+nano ./workflow/config/config.yaml
+```
