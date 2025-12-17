@@ -11,11 +11,12 @@ def find_roi_csv(wc):
     if os.path.exists(meta):
         return meta
 
-    raise FileNotFoundError(f"No bounds.csv or meta.csv in {base}")
+    raise FileNotFoundError(f"No bounds.csv or meta.csv in {base}/")
 
 
 rule make_roi_masks:
     input:
+        meta_done = "data/{dataset}/meta/.copied",
         csv = find_roi_csv,
     output:
         out_dir = directory("data/{dataset}/roi_masks")

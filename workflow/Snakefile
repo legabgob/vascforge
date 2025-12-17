@@ -1,7 +1,7 @@
-DATASETS = ["FIVES", "Fundus-AVSeg", "leuven-haifa"]
+#DATASETS = ["FIVES", "Fundus-AVSeg", "leuven-haifa"]
 RESOLUTIONS = ["576", "1024"]
 k = range(3, 9)
-configfile: "config.yaml"
+configfile: "workflow/config/config.yaml"
 
 # 1) Include all rule files (order here doesn't really matter,
 #    but we keep it in logical pipeline order for sanity)
@@ -14,6 +14,8 @@ include: "./rules/refinement.smk"
 
 rule all:
     input:
+        # copy meta.csv for all DATASETS
+        expand("data/{dataset}/meta/meta.csv", dataset=DATASETS_BASES),
         # Final desired outputs: refinement for Fundus-AVSeg at all k, resolutions
         expand(
             rules.refinement.output.refined,
