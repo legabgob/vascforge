@@ -1,67 +1,171 @@
-# Retinal Segmentation Relabelling & Refinement Pipeline
+# Segmentation relabelling & refinement (Snakemake)
 
-Snakemake-based pipeline for **refining retinal vessel artery/vein (A/V) labels**,  
-computing quality metrics, and preparing datasets for downstream analysis.
+This repository contains a **Snakemake pipeline** to standardize inputs coming from `seg_legacy` exports, generate ROI masks, downsample images/masks, run **RRWNet refinement** over multiple settings, and compute evaluation metrics.
 
-At a high level:
-
-1. Colour fundus images are segmented with an external model (e.g. **VascX**) to obtain initial vessel + A/V maps.
-2. These maps are **refined** with the RRWNet refinement module for different numbers of iterations `k`.
-3. The pipeline computes **Dice-based metrics** comparing:
-   - unrefined vs ground truth,
-   - refined vs ground truth,
-   - unrefined vs refined predictions,
-   using either full A/V ground truth (Fundus-AVSeg) or vessel-only ground truth (FIVES).
-4. Utility rules handle **ROI masks, label conversion, downsampling, and simple pixel relabelling**.
+The workflow is designed to be **portable across machines**: you should only need to set **one root directory** where all datasets’ `seg_legacy` outputs live, plus a few dataset-specific options in `workflow/config/config.yaml`.
 
 ---
 
-## Features
+## What the pipeline does
 
-- Snakemake workflow for:
-  - running RRWNet refinement over `{dataset, resolution, k}` combinations,
-  - computing DICE metrics in **A/V mode** (Fundus-AVSeg) or **vessel-only mode** (FIVES).
-- Support for 2 image resolutions (currently **576 px** and **1024 px**).
-- Dataset-aware behaviour:
-  - Fundus-AVSeg: RGB A/V ground truth + ROI masks.
-  - FIVES: grayscale vessel ground truth + vessel segmentations.
-- Helpers:
-  - convert grayscale label maps `{0,1,2,3}` → RGB A/V labels,
-  - downsample images in batch,
-  - generate circular ROI masks from `bounds.csv` **or** `meta.csv`,
-  - replace grayscale pixel value `1` → `255` in a directory of PNGs.
+The workflow is organized into stages:
+
+1. **Convert grayscale A/V labels → RGB**  
+   Converts per-image grayscale label maps (values like `{0,1,2,3}`) into RGB A/V/crossings encoding.
+2. **Copy dataset metadata (`meta.csv` or `bounds.csv`) into the repo workspace**  
+   Copies the per-dataset metadata file into `data/{dataset}/meta/` so subsequent rules read from a consistent location.
+3. **Generate ROI masks**  
+   Builds circular ROI masks from either `bounds.csv` (dict-like column) or `meta.csv` (explicit columns).
+4. **Binarize masks (optional helper)**  
+   Replaces pixel value `1 → 255` for binary masks.
+5. **Downsample predictions and masks**  
+   Downsamples directories to target widths (e.g. 576px and 1024px).
+6. **RRWNet refinement**  
+   Runs refinement for combinations of `{dataset, resolution, k}`.
+
+> Important: **Snakemake decides execution order from dependencies**, not from the order of `include:` statements.  
+> You get the intended order by making each stage’s outputs become the next stage’s inputs.
 
 ---
 
-## Repository structure
+## Repo layout
+
+Typical structure:
 
 ```text
 workflow/
-  snakefile              # main entrypoint
+  Snakefile
+  config/
+    config.yaml
   rules/
-    gray_to_rgb.smk      # grayscale A/V label → RGB conversion
-    downsample.smk       # image / mask downsampling
-    create_roi_masks.smk              # ROI mask generation from bounds/meta CSV
-    binarize_masks.smk # simple relabelling of grayscale masks
-    refinement.smk       # RRWNet refinement (grid over k, res, dataset)
-    dice.smk          # unified metrics for Fundus-AVSeg & FIVES
+    vascxgray_to_rgb.smk
+    copy_meta.smk
+    create_roi_masks.smk
+    binarize_masks.smk
+    downsample.smk
+    refinement.smk
 scripts/
-  gray_to_rgb_smk.py
-  downsample_smk.py
+  gray2rgb_smk.py
   roi_from_csv_smk.py
   binarize_masks_smk.py
-  compute_metrics_smk.py
+  downsample_smk.py
+  ...
+data/
+  weights/          # model weights (tracked via Git LFS)
+  {dataset}/
+    meta/
+    roi_masks/
+    ...
 ```
 
-## Installation
+---
 
-```text
-git lfs install 
-git clone git@github.com:legabgob/segmentation-relabelling.git
+## Configuration
+
+Edit:
+
+```bash
+nano workflow/config/config.yaml
 ```
 
-## Usage
-Update path where segmentations to be refined in `config.yaml`
-```text
-nano ./workflow/config/config.yaml
+A typical config contains:
+
+- `seg_legacy_root`: **the only required absolute path** (root folder containing all datasets)
+- `datasets`: list of datasets to run (e.g. `["Fundus-AVSeg", "FIVES"]`)
+- `dataset_subdirs`: optional mapping for datasets that live under an extra subfolder
+- `resolutions`: e.g. `[576, 1024]`
+- `k_values`: e.g. `[3,4,5,6,7,8]`
+- `weights`: paths to RRWNet weights (preferably **relative to the repo**, e.g. `data/weights/...`)
+
+Example:
+
+```yaml
+seg_legacy_root: /HDD/data/relabelling-project
+
+datasets:
+  - Fundus-AVSeg
+  - FIVES
+
+# Some datasets are stored as: {dataset}/{other_dir}/seg_legacy/...
+# Leave empty for datasets that are directly under {dataset}/seg_legacy/...
+dataset_subdirs:
+  Fundus-AVSeg: ""          # direct layout
+  FIVES: "train"            # example of dataset/otherdir layout
+
+resolutions: [576, 1024]
+k_values: [3, 4, 5, 6, 7, 8]
+
+weights:
+  1024: data/weights/rrwnet_HRF_0.pth
+  576:  data/weights/rrwnet_RITE_refinement.pth
 ```
+
+### What is `refine_datasets` (if present in your config)?
+
+If your config contains something like `refine_datasets`, it typically means:
+
+- **datasets for which the refinement step should run**
+- useful if you want to run preprocessing for many datasets but only refine a subset
+
+If you don’t need that distinction, keep just one `datasets` list.
+
+---
+
+## Running the workflow
+
+From the repo root:
+
+### Dry-run (recommended first)
+
+```bash
+snakemake -n
+```
+
+### Run
+
+```bash
+snakemake -j 4
+```
+
+### Run a single rule (by output)
+
+For wildcarded rules, target a **concrete output**. Example (directory output):
+
+```bash
+snakemake -j1 data/Fundus-AVSeg/downsampled/1024px/segs
+```
+
+## Notes on datasets with an extra subdirectory
+
+Some datasets are stored like:
+
+- `.../{dataset}/seg_legacy/...`
+- others like `.../{dataset}/{other_dir}/seg_legacy/...`
+
+The workflow supports both by using a dataset-specific `other_dir` from the config:
+
+- if `other_dir` is empty → direct layout
+- if set → use the nested layout
+
+This is used consistently for:
+- finding `av/{sample}.png` inputs
+- locating `meta.csv` / `bounds.csv`
+- any other dataset-local inputs derived from `seg_legacy`
+
+---
+
+## Git LFS for model weights
+
+RRWNet `.pth` files are >100MB and **must** be stored with Git LFS.
+
+Typical setup:
+
+```bash
+git lfs install
+git lfs track "*.pth"
+git add .gitattributes
+git add data/weights/*.pth
+git commit -m "Add weights via Git LFS"
+git push origin main
+```
+
