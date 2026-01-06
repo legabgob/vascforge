@@ -25,3 +25,11 @@ refine_datasets:
   - "FIVES"
   - "leuven-haifa"
 
+metrics:
+  out_dir: "results/metrics"
+
+  # Only these datasets will be evaluated by default
+  av_gt_datasets:
+    - "Fundus-AVSeg"
+    - "leuven-haifa"
+

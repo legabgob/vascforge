@@ -5,15 +5,24 @@ configfile: "workflow/config/config.yaml"
 DATASETS = config["datasets"]
 REFINE_DATASETS = config.get("refine_datasets", DATASETS)
 
-RESOLUTIONS = ["576", "1024"]
-k = range(3, 9)
+# Metrics configuration (optional)
+METRICS_CFG = config.get("metrics", {})
+DEFAULT_AV = {"Fundus-AVSeg", "leuven-haifa"}
+AV_GT_DATASETS = set(METRICS_CFG.get("av_gt_datasets", [d for d in DEFAULT_AV if d in DATASETS]))
+METRICS_DATASETS = METRICS_CFG.get("datasets", sorted(AV_GT_DATASETS))
+METRICS_DIR = METRICS_CFG.get("out_dir", "results/metrics")
+
+RESOLUTIONS = [str(r) for r in config.get("resolutions", ["576", "1024"])]
+k_start, k_end = config.get("k_range", [3, 9])
+k = range(int(k_start), int(k_end))
 
 # Prevent dataset wildcards from accidentally matching paths like "refined/Fundus-AVSeg/k3"
 # by constraining them to only configured dataset names.
 dataset_regex = "(" + "|".join(re.escape(d) for d in DATASETS) + ")"
+res_regex = "(" + "|".join(re.escape(str(r)) for r in RESOLUTIONS) + ")"
 wildcard_constraints:
     dataset = dataset_regex,
-    res = r"(576|1024)",
+    res = res_regex,
     k = r"\d+",
     kind = r"(segs_converted|roi_masks_binarized)"
 
@@ -23,6 +32,7 @@ include: "./rules/create_roi_masks.smk"
 include: "./rules/binarize_masks.smk"
 include: "./rules/downsample.smk"
 include: "./rules/refinement.smk"
+include: "./rules/dice.smk"
 
 rule all:
     input:
@@ -35,5 +45,9 @@ rule all:
             dataset=REFINE_DATASETS,
             res=RESOLUTIONS,
             k=k,
-        )
+        ),
+
+        # Metrics CSVs (optional; controlled by config['metrics'])
+        expand(f"{METRICS_DIR}" + "/{dataset}/metrics_1024.csv", dataset=METRICS_DATASETS),
+        expand(f"{METRICS_DIR}" + "/{dataset}/metrics_576.csv",  dataset=METRICS_DATASETS),
 
