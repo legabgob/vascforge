@@ -17,6 +17,8 @@ RESOLUTIONS = [str(r) for r in config.get("resolutions", ["576", "1024"])]
 k_start, k_end = config.get("k_range", [3, 9])
 k = range(int(k_start), int(k_end))
 
+
+
 # ---------------- GT targets (optional) ----------------
 from pathlib import Path
 from snakemake.io import glob_wildcards
@@ -74,6 +76,8 @@ VES_GT_OTHERDIR_TARGETS = [
     for od in VES_OTHERDIRS.get(d, [])
     for res in RESOLUTIONS
 ]
+
+
 
 # Prevent dataset wildcards from accidentally matching paths like "refined/Fundus-AVSeg/k3"
 # by constraining them to only configured dataset names.

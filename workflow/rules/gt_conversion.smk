@@ -32,6 +32,27 @@ GT_ROOT = Path(GT_CFG.get("root", config.get("legacy_root", "."))).resolve()
 AV_CFG  = (GT_CFG.get("av_rgb", {}) or {}).get("datasets", {}) or {}
 VES_CFG = (GT_CFG.get("vessel_gray", {}) or {}).get("datasets", {}) or {}
 
+AV_OTHERDIR_DATASETS = {
+    d for d, spec in AV_CFG.items()
+    if "{other_dir}" in str(spec.get("pattern", ""))
+}
+AV_SIMPLE_DATASETS = set(AV_CFG.keys()) - AV_OTHERDIR_DATASETS
+
+VES_OTHERDIR_DATASETS = {
+    d for d, spec in VES_CFG.items()
+    if "{other_dir}" in str(spec.get("pattern", ""))
+}
+VES_SIMPLE_DATASETS = set(VES_CFG.keys()) - VES_OTHERDIR_DATASETS
+
+
+
+def _assert_no_other_dir_in_pattern(dataset: str, pattern: str):
+    if "{other_dir}" in pattern:
+        raise ValueError(
+            f"Dataset '{dataset}' uses pattern with '{{other_dir}}', "
+            "but you are calling a *simple* GT rule without other_dir."
+        )
+
 def _pattern_dir(pattern: str, **fmt) -> str:
     # Fill pattern enough to compute directory; sample placeholder replaced.
     fmt2 = dict(fmt)
@@ -48,9 +69,12 @@ def _mapping(dataset: str):
 
 def av_src_dir_simple(wc):
     pat = AV_CFG[wc.dataset]["pattern"]
+    _assert_no_other_dir_in_pattern(wc.dataset, pat)
     return _pattern_dir(pat, dataset=wc.dataset)
 
 rule copy_gt_av_simple:
+    wildcard_constraints:
+        dataset="|".join(sorted(AV_SIMPLE_DATASETS)) if AV_SIMPLE_DATASETS else "NO_MATCH"
     input:
         src_dir = av_src_dir_simple
     output:
@@ -62,6 +86,8 @@ rule copy_gt_av_simple:
         """
 
 rule recolor_gt_av_simple:
+    wildcard_constraints:
+        dataset="|".join(sorted(AV_SIMPLE_DATASETS)) if AV_SIMPLE_DATASETS else "NO_MATCH"
     input:
         in_dir = "data/{dataset}/gt/raw"
     output:
@@ -73,6 +99,8 @@ rule recolor_gt_av_simple:
         "scripts/recolor_rgb_dir_smk.py"
 
 rule downsample_gt_av_simple:
+    wildcard_constraints:
+        dataset="|".join(sorted(AV_SIMPLE_DATASETS)) if AV_SIMPLE_DATASETS else "NO_MATCH"
     input:
         in_dir = "data/{dataset}/gt/converted"
     output:
@@ -93,6 +121,8 @@ def av_src_dir_other(wc):
     return _pattern_dir(pat, dataset=wc.dataset, other_dir=wc.other_dir)
 
 rule copy_gt_av_otherdir:
+    wildcard_constraints:
+        dataset="|".join(sorted(AV_OTHERDIR_DATASETS)) if AV_OTHERDIR_DATASETS else "NO_MATCH"
     input:
         src_dir = av_src_dir_other
     output:
@@ -104,6 +134,8 @@ rule copy_gt_av_otherdir:
         """
 
 rule recolor_gt_av_otherdir:
+    wildcard_constraints:
+        dataset="|".join(sorted(AV_OTHERDIR_DATASETS)) if AV_OTHERDIR_DATASETS else "NO_MATCH"
     input:
         in_dir = "data/{dataset}/{other_dir}/gt/raw"
     output:
@@ -115,6 +147,8 @@ rule recolor_gt_av_otherdir:
         "scripts/recolor_rgb_dir_smk.py"
 
 rule downsample_gt_av_otherdir:
+    wildcard_constraints:
+        dataset="|".join(sorted(AV_OTHERDIR_DATASETS)) if AV_OTHERDIR_DATASETS else "NO_MATCH"
     input:
         in_dir = "data/{dataset}/{other_dir}/gt/converted"
     output:
