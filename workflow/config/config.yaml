@@ -33,3 +33,32 @@ metrics:
     - "Fundus-AVSeg"
     - "leuven-haifa"
 
+ground_truth:
+  enabled: false
+  # Set enabled: true once you have configured the patterns below.
+  # root: "/path/to/where/GTs/live"   # defaults to legacy_root if omitted
+
+  av_rgb:
+    datasets:
+      Fundus-AVSeg:
+        # Example: GTs stored in a single folder
+        pattern: "Fundus-AVSeg/GTs/{sample}.png"
+        mapping:
+          - [[255, 0, 0], [255, 0, 255]]
+          - [[0, 0, 255], [0, 255, 255]]
+          - [[0, 255, 0], [255, 255, 255]]
+          - [[255, 255, 255], [0, 0, 255]]
+
+      leuven-haifa:
+        # Multiple subfolders; keep them separate via {other_dir}
+        pattern: "leuven-haifa/{other_dir}/label/{sample}.png"
+        mapping:
+          - [[255, 0, 0], [255, 0, 255]]
+          - [[0, 0, 255], [0, 255, 255]]
+          - [[0, 255, 0], [255, 255, 255]]
+          - [[255, 255, 255], [0, 0, 255]]
+
+  vessel_gray:
+    datasets:
+      FIVES:
+        pattern: "FIVES/train/GTs/{sample}.png"

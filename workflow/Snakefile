@@ -16,6 +16,44 @@ RESOLUTIONS = [str(r) for r in config.get("resolutions", ["576", "1024"])]
 k_start, k_end = config.get("k_range", [3, 9])
 k = range(int(k_start), int(k_end))
 
+# ---------------- GT targets (optional) ----------------
+from pathlib import Path
+from snakemake.io import glob_wildcards
+
+GT_CFG = config.get("ground_truth", {})
+GT_ENABLED = bool(GT_CFG.get("enabled", False))
+
+# default to legacy_root if ground_truth.root not provided
+GT_ROOT = Path(GT_CFG.get("root", config.get("legacy_root", "."))).resolve()
+
+AV_CFG = ((GT_CFG.get("av_rgb", {}) or {}).get("datasets", {}) or {}) if GT_ENABLED else {}
+VES_CFG = ((GT_CFG.get("vessel_gray", {}) or {}).get("datasets", {}) or {}) if GT_ENABLED else {}
+
+# Datasets that have AV GTs and vessel-only GTs (from config)
+AV_GT_DATASETS_ALL = sorted(AV_CFG.keys())
+VESSEL_GT_DATASETS = sorted(VES_CFG.keys())
+
+# Split AV datasets into those with and without {other_dir}
+AV_GT_WITH_OTHERDIR = [
+    d for d in AV_GT_DATASETS_ALL if "{other_dir}" in str(AV_CFG[d].get("pattern", ""))
+]
+AV_GT_SIMPLE = [d for d in AV_GT_DATASETS_ALL if d not in AV_GT_WITH_OTHERDIR]
+
+# Discover other_dir values for datasets that use {other_dir}
+AV_OTHERDIRS = {}
+for d in AV_GT_WITH_OTHERDIR:
+    abs_pat = str(GT_ROOT / AV_CFG[d]["pattern"])
+    ods, _samples = glob_wildcards(abs_pat)
+    AV_OTHERDIRS[d] = sorted(set(ods))
+
+# Pre-build targets for other_dir datasets (since expand() doesn't do per-dataset lists nicely)
+GT_AV_OTHERDIR_TARGETS = [
+    f"data/{d}/{od}/downsampled/{res}px/GTs"
+    for d in AV_GT_WITH_OTHERDIR
+    for od in AV_OTHERDIRS.get(d, [])
+    for res in RESOLUTIONS
+]
+
 # Prevent dataset wildcards from accidentally matching paths like "refined/Fundus-AVSeg/k3"
 # by constraining them to only configured dataset names.
 dataset_regex = "(" + "|".join(re.escape(d) for d in DATASETS) + ")"
@@ -26,13 +64,14 @@ wildcard_constraints:
     k = r"\d+",
     kind = r"(segs_converted|roi_masks_binarized)"
 
-include: "./rules/vascxgray_to_rgb.smk"
-include: "./rules/copy_meta.smk"
-include: "./rules/create_roi_masks.smk"
-include: "./rules/binarize_masks.smk"
-include: "./rules/downsample.smk"
-include: "./rules/refinement.smk"
-include: "./rules/dice.smk"
+include: "/rules/vascxgray_to_rgb.smk"
+include: "/rules/copy_meta.smk"
+include: "/rules/create_roi_masks.smk"
+include: "/rules/binarize_masks.smk"
+include: "/rules/downsample.smk"
+include: "/rules/refinement.smk"
+include: "/rules/dice.smk"
+include: "/rules/gt_conversion.smk"
 
 rule all:
     input:
@@ -46,6 +85,15 @@ rule all:
             res=RESOLUTIONS,
             k=k,
         ),
+        
+        # Ground-truth outputs (optional; enabled via config['ground_truth']['enabled'])
+        # A/V GT datasets without other_dir
+        expand("data/{dataset}/downsampled/{res}px/GTs", dataset=AV_GT_SIMPLE, res=RESOLUTIONS),
+        # A/V GT datasets with other_dir (targets built explicitly)
+        GT_AV_OTHERDIR_TARGETS,
+        # Vessel-only GT datasets (grayscale)
+        expand("data/{dataset}/downsampled/{res}px/GTs_vessel", dataset=VESSEL_GT_DATASETS, res=RESOLUTIONS),
+
 
         # Metrics CSVs (optional; controlled by config['metrics'])
         expand(f"{METRICS_DIR}" + "/{dataset}/metrics_1024.csv", dataset=METRICS_DATASETS),
