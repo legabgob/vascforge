@@ -1,113 +1,114 @@
-# Segmentation relabelling & refinement (Snakemake)
+# Segmentation relabelling
 
-This repository contains a **Snakemake pipeline** to standardize inputs coming from `seg_legacy` exports, generate ROI masks, downsample images/masks, run **RRWNet refinement** over multiple settings, and compute evaluation metrics.
+A Snakemake pipeline to **convert**, **mask/ROI**, **downsample**, **refine** retinal vessel segmentations (A/V/crossings) and optionally **evaluate** with DICE metrics.
 
-The workflow is designed to be **portable across machines**: you should only need to set **one root directory** where all datasets’ `seg_legacy` outputs live, plus a few dataset-specific options in `workflow/config/config.yaml`.
-
----
-
-## What the pipeline does
-
-The workflow is organized into stages:
-
-1. **Convert grayscale A/V labels → RGB**  
-   Converts per-image grayscale label maps (values like `{0,1,2,3}`) into RGB A/V/crossings encoding.
-2. **Copy dataset metadata (`meta.csv` or `bounds.csv`) into the repo workspace**  
-   Copies the per-dataset metadata file into `data/{dataset}/meta/` so subsequent rules read from a consistent location.
-3. **Generate ROI masks**  
-   Builds circular ROI masks from either `bounds.csv` (dict-like column) or `meta.csv` (explicit columns).
-4. **Binarize masks (optional helper)**  
-   Replaces pixel value `1 → 255` for binary masks.
-5. **Downsample predictions and masks**  
-   Downsamples directories to target widths (e.g. 576px and 1024px).
-6. **RRWNet refinement**  
-   Runs refinement for combinations of `{dataset, resolution, k}`.
-
-> Important: **Snakemake decides execution order from dependencies**, not from the order of `include:` statements.  
-> You get the intended order by making each stage’s outputs become the next stage’s inputs.
+This repo is designed to be **portable across machines**: you configure a single root directory containing your dataset exports (e.g. `seg_legacy/`) and the pipeline builds a consistent `data/` workspace and `results/` outputs.
 
 ---
 
-## Repo layout
+## What this pipeline does
 
-Typical structure:
+Given dataset outputs produced by your legacy tooling (typically `seg_legacy/`), the workflow can:
 
-```text
-workflow/
-  Snakefile
-  config/
-    config.yaml
-  rules/
-    vascxgray_to_rgb.smk
-    copy_meta.smk
-    create_roi_masks.smk
-    binarize_masks.smk
-    downsample.smk
-    refinement.smk
-scripts/
-  gray2rgb_smk.py
-  roi_from_csv_smk.py
-  binarize_masks_smk.py
-  downsample_smk.py
-  ...
-data/
-  weights/          # model weights (tracked via Git LFS)
-  {dataset}/
-    meta/
-    roi_masks/
-    ...
-```
+1. **Convert** grayscale A/V label maps → RGB label maps (A/V/crossings mapping).
+2. **Copy metadata** (`meta.csv` or `bounds.csv`) into the workspace.
+3. **Create ROI masks** from `meta.csv` or `bounds.csv` (circular ROI).
+4. **Binarize ROI masks** (e.g. convert `1 → 255` if needed).
+5. **Downsample** predicted labels, ROI masks (and optionally GTs) to target resolutions (e.g. 576px, 1024px).
+6. **Refine** predictions using RRWNet refinement (`k` iterations) and write refined outputs.
+7. **Compute DICE metrics** (optional) for:
+   - datasets with A/V ground truth (RGB GT), and/or
+   - datasets with vessel-only ground truth.
+
+The workflow supports datasets that are organized either as:
+
+- `ROOT/{dataset}/seg_legacy/...`
+- `ROOT/{dataset}/{other_dir}/seg_legacy/...`  (multiple `other_dir` per dataset, kept separate)
 
 ---
 
-## Configuration
+## Repository layout
 
-Edit:
+- `workflow/`
+  - `Snakefile` – main entrypoint
+  - `config/config.yaml` – all configuration (paths, datasets, refinement grid, metrics, GT handling)
+  - `rules/` – modular rules (`vascxgray_to_rgb.smk`, `copy_meta.smk`, `create_roi_masks.smk`, `binarize_masks.smk`, `downsample.smk`, `refinement.smk`, `dice.smk`, etc.)
+- `scripts/`
+  - Snakemake-friendly scripts (directory-to-directory batch processing, ROI creation, metrics computation)
+- `data/` *(generated)* – standardized workspace outputs
+- `results/` *(generated)* – refined predictions + evaluation outputs
+
+---
+
+## Installation
+
+### 1) Clone
 
 ```bash
-nano workflow/config/config.yaml
+git clone <your-repo-url>
+cd segmentation-relabelling
 ```
 
-A typical config contains:
+### 2) Environment
 
-- `seg_legacy_root`: **the only required absolute path** (root folder containing all datasets)
-- `datasets`: list of datasets to run (e.g. `["Fundus-AVSeg", "FIVES"]`)
-- `dataset_subdirs`: optional mapping for datasets that live under an extra subfolder
-- `resolutions`: e.g. `[576, 1024]`
-- `k_values`: e.g. `[3,4,5,6,7,8]`
-- `weights`: paths to RRWNet weights (preferably **relative to the repo**, e.g. `data/weights/...`)
+You need Python 3.10+ and the core packages used by the scripts:
 
-Example:
+- `snakemake`
+- `numpy`
+- `pillow`
+- `pandas` (for metrics)
+
+If you use conda/mamba:
+
+```bash
+mamba create -n relabelling -c conda-forge python=3.10 snakemake pandas numpy pillow
+mamba activate relabelling
+```
+
+---
+
+## Configuration (`workflow/config/config.yaml`)
+
+The pipeline is driven by `workflow/config/config.yaml`.
+
+At minimum, set:
+
+- `legacy_root`: the **root directory** where dataset exports live (contains the datasets folders).
+- `datasets`: which datasets to process.
+- `resolutions`: list of downsample widths.
+- `k_range`: refinement iteration range.
+
+Example skeleton:
 
 ```yaml
-seg_legacy_root: /HDD/data/relabelling-project
+legacy_root: "/HDD/data/relabelling-project"
 
 datasets:
   - Fundus-AVSeg
+  - leuven-haifa
   - FIVES
 
-# Some datasets are stored as: {dataset}/{other_dir}/seg_legacy/...
-# Leave empty for datasets that are directly under {dataset}/seg_legacy/...
-dataset_subdirs:
-  Fundus-AVSeg: ""          # direct layout
-  FIVES: "train"            # example of dataset/otherdir layout
-
-resolutions: [576, 1024]
-k_values: [3, 4, 5, 6, 7, 8]
-
-weights:
-  1024: data/weights/rrwnet_HRF_0.pth
-  576:  data/weights/rrwnet_RITE_refinement.pth
+resolutions: ["576", "1024"]
+k_range: [3, 9]   # produces k=3..8
 ```
 
-### What is `refine_datasets` (if present in your config)?
+### Datasets with `{other_dir}`
 
-If your config contains something like `refine_datasets`, it typically means:
+Some datasets are structured as:
 
-- **datasets for which the refinement step should run**
-- useful if you want to run preprocessing for many datasets but only refine a subset
+```
+legacy_root/dataset/other_dir/seg_legacy/...
+```
 
-If you don’t need that distinction, keep just one `datasets` list.
+The workflow auto-detects these and preserves separation under:
+
+```
+data/{dataset}/{other_dir}/...
+```
+
+### Model weights
+
+Refinement uses RRWNet weights. If you keep weights in-repo, use Git LFS (recommended). If you keep them outside the repo, point to them via config.
 
 ---
 
@@ -115,57 +116,121 @@ If you don’t need that distinction, keep just one `datasets` list.
 
 From the repo root:
 
-### Dry-run (recommended first)
+### Dry run (recommended)
 
 ```bash
 snakemake -n
 ```
 
+### Print commands + reasons (still dry)
+
+```bash
+snakemake -n -p -r
+```
+
 ### Run
 
 ```bash
-snakemake -j 4
+snakemake -j 8
 ```
-
-### Run a single rule (by output)
-
-For wildcarded rules, target a **concrete output**. Example (directory output):
-
-```bash
-snakemake -j1 data/Fundus-AVSeg/downsampled/1024px/segs
-```
-
-## Notes on datasets with an extra subdirectory
-
-Some datasets are stored like:
-
-- `.../{dataset}/seg_legacy/...`
-- others like `.../{dataset}/{other_dir}/seg_legacy/...`
-
-The workflow supports both by using a dataset-specific `other_dir` from the config:
-
-- if `other_dir` is empty → direct layout
-- if set → use the nested layout
-
-This is used consistently for:
-- finding `av/{sample}.png` inputs
-- locating `meta.csv` / `bounds.csv`
-- any other dataset-local inputs derived from `seg_legacy`
 
 ---
 
-## Git LFS for model weights
+## Outputs
 
-RRWNet `.pth` files are >100MB and **must** be stored with Git LFS.
+### Workspace outputs (`data/`)
 
-Typical setup:
+Common outputs include:
+
+- `data/{dataset}/segs_converted/`  
+  RGB converted predictions (from grayscale labels)
+- `data/{dataset}/meta/meta.csv`  
+  Copied metadata (`meta.csv` or `bounds.csv`)
+- `data/{dataset}/roi_masks/`  
+  ROI masks generated from metadata
+- `data/{dataset}/roi_masks_binarized/`  
+  Clean/binarized ROI masks
+- `data/{dataset}/downsampled/{res}px/...`  
+  Downsampled predictions / masks / (optionally) GTs
+
+If a dataset has multiple `other_dir`, the outputs become:
+
+- `data/{dataset}/{other_dir}/...`
+
+### Refined predictions (`results/`)
+
+Refinement outputs:
+
+- `results/refined/{dataset}/k{k}/downsampled/{res}px/`
+
+Each `k` and resolution gets its own directory.
+
+### Metrics (`results/metrics/`)
+
+Metrics are written to:
+
+- Simple layout:
+  - `results/metrics/{dataset}/metrics_1024.csv`
+  - `results/metrics/{dataset}/metrics_576.csv`
+- `{other_dir}` layout (GTs separated by `other_dir`):
+  - `results/metrics/{dataset}/{other_dir}/metrics_1024.csv`
+  - `results/metrics/{dataset}/{other_dir}/metrics_576.csv`
+
+---
+
+## Ground truth (optional)
+
+Some datasets have A/V ground truth (RGB GT), others only vessel ground truth (grayscale).
+
+The workflow supports GT ingestion + conversion + downsampling when enabled in config:
+
+```yaml
+ground_truth:
+  enabled: true
+  # root: "/path/to/gt_root"  # defaults to legacy_root if omitted
+
+  av_rgb:
+    datasets:
+      Fundus-AVSeg:
+        pattern: "Fundus-AVSeg/GTs/{sample}.png"
+        mapping:
+          - [[255, 0, 0], [255, 0, 255]]
+          - [[0, 0, 255], [0, 255, 255]]
+          - [[0, 255, 0], [255, 255, 255]]
+          - [[255, 255, 255], [0, 0, 255]]
+
+      leuven-haifa:
+        pattern: "leuven-haifa/{other_dir}/label/{sample}.png"
+        mapping: [...]
+
+  vessel_gray:
+    datasets:
+      FIVES:
+        pattern: "FIVES/{other_dir}/GTs/{sample}.png"
+```
+
+- A/V GTs end up as `.../downsampled/{res}px/GTs`
+- vessel-only GTs end up as `.../downsampled/{res}px/GTs_vessel`
+
+---
+
+## Common troubleshooting
+
+### “Missing input files … GTs”
+If a dataset’s GTs use `{other_dir}`, metrics must be computed per `(dataset, other_dir)`.
+Make sure:
+- your `ground_truth` patterns include `{other_dir}`
+- `rule all` includes the correct targets
+- your metrics rules are split into *simple* vs *other_dir* variants
+
+### “The flag 'directory' is only valid for outputs”
+In Snakemake, `directory()` must only be used for **outputs**, not inputs.
+Inputs should be plain strings (or functions returning strings).
+
+### Visualize the DAG
+`snakemake --dag` prints a Graphviz DOT graph to stdout:
 
 ```bash
-git lfs install
-git lfs track "*.pth"
-git add .gitattributes
-git add data/weights/*.pth
-git commit -m "Add weights via Git LFS"
-git push origin main
+snakemake --dag | dot -Tpng > dag.png
 ```
 
