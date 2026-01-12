@@ -57,6 +57,17 @@ GT_AV_OTHERDIR_TARGETS = [
     for res in RESOLUTIONS
 ]
 
+# --- Metrics targets ---
+METRICS_AV_WITH_OTHERDIR = [d for d in METRICS_DATASETS if d in AV_GT_WITH_OTHERDIR]
+METRICS_AV_SIMPLE = [d for d in METRICS_DATASETS if d not in METRICS_AV_WITH_OTHERDIR]
+
+METRICS_AV_OTHERDIR_TARGETS = [
+    f"{METRICS_DIR}/{d}/{od}/metrics_{res}.csv"
+    for d in METRICS_AV_WITH_OTHERDIR
+    for od in AV_OTHERDIRS.get(d, [])
+    for res in ["1024", "576"]
+]
+
 # Split vessel-only datasets into those with and without {other_dir}
 VES_GT_WITH_OTHERDIR = [
     d for d in VESSEL_GT_DATASETS if "{other_dir}" in str(VES_CFG[d].get("pattern", ""))
@@ -124,7 +135,6 @@ rule all:
         VES_GT_OTHERDIR_TARGETS,
 
 
-        # Metrics CSVs (optional; controlled by config['metrics'])
-        expand(f"{METRICS_DIR}" + "/{dataset}/metrics_1024.csv", dataset=METRICS_DATASETS),
-        expand(f"{METRICS_DIR}" + "/{dataset}/metrics_576.csv",  dataset=METRICS_DATASETS),
-
+        expand(f"{METRICS_DIR}" + "/{dataset}/metrics_1024.csv", dataset=METRICS_AV_SIMPLE),
+        expand(f"{METRICS_DIR}" + "/{dataset}/metrics_576.csv",  dataset=METRICS_AV_SIMPLE),
+        METRICS_AV_OTHERDIR_TARGETS,

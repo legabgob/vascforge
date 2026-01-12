@@ -1,20 +1,28 @@
 # workflow/rules/dice.smk
 #
-# Runs scripts/compute_metrics_smk.py to produce per-dataset CSVs.
+# Runs scripts/compute_metrics_smk.py to produce DICE metric CSVs.
 #
-# IMPORTANT:
-#   This rule declares *real inputs* (refinement outputs + downsample outputs),
-#   so Snakemake will run refinement/downsample first.
+# Supports:
+#   - A/V GT datasets (RGB GTs) in two layouts:
+#       * simple:   data/{dataset}/downsampled/{res}px/GTs
+#       * otherdir: data/{dataset}/{other_dir}/downsampled/{res}px/GTs
+#   - vessel-only GT datasets (optional; requires metrics.vessel_gt_dirs entries)
 #
-# No hard-coded /SSD/... paths: everything is either pipeline-produced or configurable.
+# Why two A/V rules?
+#   Datasets like "leuven-haifa" have multiple GT subfolders ({other_dir}) that must not be merged.
+#   Therefore metrics are computed per (dataset, other_dir) and written under:
+#       results/metrics/{dataset}/{other_dir}/metrics_{res}.csv
+
+import re
+from pathlib import Path
+from snakemake.io import glob_wildcards
 
 # --------------------------
-# Configuration (with safe defaults)
+# Configuration (safe defaults)
 # --------------------------
 
 METRICS_CFG = config.get("metrics", {}) if isinstance(config, dict) else {}
 
-# Default: only Fundus-AVSeg and leuven-haifa are considered A/V-GT datasets (if present in config["datasets"])
 _default_av = {"Fundus-AVSeg", "leuven-haifa"}
 _datasets = config.get("datasets", [])
 if isinstance(_datasets, dict):
@@ -23,121 +31,199 @@ _datasets = set(_datasets)
 
 AV_GT_DATASETS = set(METRICS_CFG.get("av_gt_datasets", list(_default_av & _datasets)))
 
-# Which datasets to *actually compute metrics for*.
-# Default: compute only for A/V-GT datasets, to avoid failing on datasets that don't have the needed GT inputs yet.
+# Which datasets to compute metrics for
 METRICS_DATASETS = METRICS_CFG.get("datasets", sorted(AV_GT_DATASETS))
 
-# Where CSVs are written
+# Output root
 METRICS_DIR = METRICS_CFG.get("out_dir", "results/metrics")
 
 # Optional per-dataset overrides for GT locations (A/V GT).
-# If not provided, we assume GTs are located at:
-#   data/{dataset}/downsampled/{res}px/GTs
+# Only applies to SIMPLE layout (dataset-level). For other_dir layouts we rely on pipeline outputs.
 AV_GT_DIRS = METRICS_CFG.get("av_gt_dirs", {})
 
-# Optional per-dataset overrides for vessel-only GT locations.
+# Optional vessel-only native dirs mapping (only used if you explicitly include such datasets in METRICS_DATASETS)
 VESSEL_GT_DIRS = METRICS_CFG.get("vessel_gt_dirs", {})
 
-# Refinement grid (used only to build dependency inputs)
+# Refinement grid (only used to declare dependency inputs)
 RESOLUTIONS = [str(r) for r in config.get("resolutions", ["576", "1024"])]
 k_start, k_end = config.get("k_range", [3, 9])
 K_VALUES = list(range(int(k_start), int(k_end)))
 
 # --------------------------
-# Helpers
+# Discover which A/V GT datasets use {other_dir} (from ground_truth config)
 # --------------------------
 
-def _has_av_gt(wc):
-    return int(wc.dataset in AV_GT_DATASETS)
+GT_CFG = config.get("ground_truth", {}) if isinstance(config, dict) else {}
+GT_ENABLED = bool(GT_CFG.get("enabled", False))
+GT_ROOT = Path(GT_CFG.get("root", config.get("legacy_root", "."))).resolve()
+
+AV_CFG = ((GT_CFG.get("av_rgb", {}) or {}).get("datasets", {}) or {}) if GT_ENABLED else {}
+
+AV_OTHERDIR_DATASETS = {
+    d for d, spec in AV_CFG.items()
+    if "{other_dir}" in str((spec or {}).get("pattern", ""))
+}
+
+# Restrict to datasets we actually compute metrics for
+METRICS_AV_OTHERDIR = sorted(
+    [d for d in METRICS_DATASETS if (d in AV_GT_DATASETS and d in AV_OTHERDIR_DATASETS)]
+)
+METRICS_AV_SIMPLE = sorted(
+    [d for d in METRICS_DATASETS if (d in AV_GT_DATASETS and d not in AV_OTHERDIR_DATASETS)]
+)
+METRICS_VESSEL_ONLY = sorted([d for d in METRICS_DATASETS if d not in AV_GT_DATASETS])
+
+# For other_dir A/V datasets, discover available other_dir values by globbing the configured GT pattern.
+METRICS_AV_OTHERDIR_VALUES = {}  # dataset -> [other_dir,...]
+for d in METRICS_AV_OTHERDIR:
+    spec = AV_CFG.get(d, {}) or {}
+    pat = spec.get("pattern")
+    if not pat:
+        raise ValueError(
+            f"metrics: dataset '{d}' requires ground_truth.av_rgb.datasets.{d}.pattern with '{{other_dir}}'"
+        )
+    abs_pat = str(GT_ROOT / pat)
+    other_dirs, _samples = glob_wildcards(abs_pat)  # expects (other_dir, sample)
+    METRICS_AV_OTHERDIR_VALUES[d] = sorted(set(other_dirs))
+
+# --------------------------
+# Helper functions
+# --------------------------
 
 def _gt_av_dir(dataset: str, res: str) -> str:
-    # 1) config override: metrics.av_gt_dirs[dataset][res]
+    """A/V GT dir for dataset+res (simple layout)."""
     ds = AV_GT_DIRS.get(dataset, {}) if isinstance(AV_GT_DIRS, dict) else {}
     if isinstance(ds, dict) and ds.get(res):
         return str(ds[res])
-    # 2) default expected location inside repo workspace
     return f"data/{dataset}/downsampled/{res}px/GTs"
 
-def _vessel_native_dirs(dataset: str):
-    # Must be provided via config if you want vessel-only mode to work.
-    # Example structure:
-    # metrics:
-    #   vessel_gt_dirs:
-    #     FIVES:
-    #       gt_native_dir: /path/to/GTs
-    #       seg_native_dir: /path/to/vessel_segs
-    ds = VESSEL_GT_DIRS.get(dataset, {}) if isinstance(VESSEL_GT_DIRS, dict) else {}
-    return (str(ds.get("gt_native_dir", "")), str(ds.get("seg_native_dir", "")))
+def _gt_av_dir_other(dataset: str, other_dir: str, res: str) -> str:
+    """A/V GT dir for dataset+other_dir+res (otherdir layout)."""
+    return f"data/{dataset}/{other_dir}/downsampled/{res}px/GTs"
 
-def _metrics_inputs(wc):
-    """Declare real dependencies so compute_metrics runs after refinement + downsample."""
+def _vessel_native_dirs(dataset: str):
+    """Return (gt_native_dir, seg_native_dir) for vessel-only datasets."""
+    ds = VESSEL_GT_DIRS.get(dataset, {}) if isinstance(VESSEL_GT_DIRS, dict) else {}
+    if not isinstance(ds, dict):
+        return ("", "")
+    return (ds.get("gt_native_dir", ""), ds.get("seg_native_dir", ""))
+
+def _metrics_inputs_simple(wc):
+    """Dependencies for dataset-only rules."""
     ds = wc.dataset
 
-    # All refined dirs for this dataset (for all K and all RESOLUTIONS)
     refined_dirs = [
         f"results/refined/{ds}/k{k}/downsampled/{res}px"
         for k in K_VALUES
         for res in RESOLUTIONS
     ]
-
-    # Unrefined RGB segs produced by downsample.smk
     unref_dirs = [
         f"data/{ds}/downsampled/1024px/segs_converted",
         f"data/{ds}/downsampled/576px/segs_converted",
     ]
-
-    # ROI masks produced by downsample.smk (masked evaluation)
     roi_dirs = [
         f"data/{ds}/downsampled/1024px/roi_masks_binarized",
         f"data/{ds}/downsampled/576px/roi_masks_binarized",
     ]
 
-    # Ground truth inputs
     if ds in AV_GT_DATASETS:
         gt_dirs = [_gt_av_dir(ds, "1024"), _gt_av_dir(ds, "576")]
     else:
         gt_native_dir, seg_native_dir = _vessel_native_dirs(ds)
         gt_dirs = [gt_native_dir, seg_native_dir]
 
-    # Filter out empty strings (so non-configured vessel-only datasets don't create a weird empty input)
+    return [p for p in (refined_dirs + unref_dirs + roi_dirs + gt_dirs) if p]
+
+def _metrics_inputs_otherdir(wc):
+    """Dependencies for dataset+other_dir rules."""
+    ds = wc.dataset
+    od = wc.other_dir
+
+    refined_dirs = [
+        f"results/refined/{ds}/k{k}/downsampled/{res}px"
+        for k in K_VALUES
+        for res in RESOLUTIONS
+    ]
+    unref_dirs = [
+        f"data/{ds}/downsampled/1024px/segs_converted",
+        f"data/{ds}/downsampled/576px/segs_converted",
+    ]
+    roi_dirs = [
+        f"data/{ds}/downsampled/1024px/roi_masks_binarized",
+        f"data/{ds}/downsampled/576px/roi_masks_binarized",
+    ]
+    gt_dirs = [_gt_av_dir_other(ds, od, "1024"), _gt_av_dir_other(ds, od, "576")]
+
     return [p for p in (refined_dirs + unref_dirs + roi_dirs + gt_dirs) if p]
 
 # --------------------------
-# Rule
+# Rules
 # --------------------------
 
-rule compute_metrics:
-    """
-    Compute DICE metrics for refinement outputs.
-
-    Ground truth selection:
-      - A/V GT mode for datasets listed in metrics.av_gt_datasets
-      - vessel-only mode otherwise (requires metrics.vessel_gt_dirs per dataset)
-    """
+rule compute_metrics_av_simple:
+    """Compute metrics for A/V datasets whose GTs are in the simple layout."""
+    wildcard_constraints:
+        dataset="|".join(map(re.escape, METRICS_AV_SIMPLE)) if METRICS_AV_SIMPLE else "NO_MATCH"
     input:
-        _metrics_inputs
+        _metrics_inputs_simple
     output:
         csv_1024 = f"{METRICS_DIR}" + "/{dataset}/metrics_1024.csv",
         csv_576  = f"{METRICS_DIR}" + "/{dataset}/metrics_576.csv",
     params:
-        has_av_gt = _has_av_gt,
-
-        # Refined root produced by refinement.smk
-        refined_root = lambda wc: f"results/refined/{wc.dataset}",
-
-        # Unrefined dirs produced by downsample.smk
+        has_av_gt = 1,
+        refined_root   = lambda wc: f"results/refined/{wc.dataset}",
         unref_1024_dir = lambda wc: f"data/{wc.dataset}/downsampled/1024px/segs_converted",
         unref_576_dir  = lambda wc: f"data/{wc.dataset}/downsampled/576px/segs_converted",
-
-        # A/V GT dirs (configurable)
         gt_1024_dir = lambda wc: _gt_av_dir(wc.dataset, "1024"),
         gt_576_dir  = lambda wc: _gt_av_dir(wc.dataset, "576"),
-
-        # ROI masks produced by downsample.smk (masked metrics)
         roi_1024_dir = lambda wc: f"data/{wc.dataset}/downsampled/1024px/roi_masks_binarized",
         roi_576_dir  = lambda wc: f"data/{wc.dataset}/downsampled/576px/roi_masks_binarized",
+        gt_native_dir  = "",
+        seg_native_dir = "",
+    script:
+        "scripts/compute_metrics_smk.py"
 
-        # Vessel-only GT dirs (optional; only used if has_av_gt == 0)
+rule compute_metrics_av_otherdir:
+    """Compute metrics for A/V datasets with multiple GT subfolders ({other_dir})."""
+    wildcard_constraints:
+        dataset="|".join(map(re.escape, METRICS_AV_OTHERDIR)) if METRICS_AV_OTHERDIR else "NO_MATCH"
+    input:
+        _metrics_inputs_otherdir
+    output:
+        csv_1024 = f"{METRICS_DIR}" + "/{dataset}/{other_dir}/metrics_1024.csv",
+        csv_576  = f"{METRICS_DIR}" + "/{dataset}/{other_dir}/metrics_576.csv",
+    params:
+        has_av_gt = 1,
+        refined_root   = lambda wc: f"results/refined/{wc.dataset}",
+        unref_1024_dir = lambda wc: f"data/{wc.dataset}/downsampled/1024px/segs_converted",
+        unref_576_dir  = lambda wc: f"data/{wc.dataset}/downsampled/576px/segs_converted",
+        gt_1024_dir = lambda wc: _gt_av_dir_other(wc.dataset, wc.other_dir, "1024"),
+        gt_576_dir  = lambda wc: _gt_av_dir_other(wc.dataset, wc.other_dir, "576"),
+        roi_1024_dir = lambda wc: f"data/{wc.dataset}/downsampled/1024px/roi_masks_binarized",
+        roi_576_dir  = lambda wc: f"data/{wc.dataset}/downsampled/576px/roi_masks_binarized",
+        gt_native_dir  = "",
+        seg_native_dir = "",
+    script:
+        "scripts/compute_metrics_smk.py"
+
+rule compute_metrics_vessel_only:
+    """Optional: compute metrics for vessel-only datasets (must be configured in metrics.vessel_gt_dirs)."""
+    wildcard_constraints:
+        dataset="|".join(map(re.escape, METRICS_VESSEL_ONLY)) if METRICS_VESSEL_ONLY else "NO_MATCH"
+    input:
+        _metrics_inputs_simple
+    output:
+        csv_1024 = f"{METRICS_DIR}" + "/{dataset}/metrics_1024.csv",
+        csv_576  = f"{METRICS_DIR}" + "/{dataset}/metrics_576.csv",
+    params:
+        has_av_gt = 0,
+        refined_root   = lambda wc: f"results/refined/{wc.dataset}",
+        unref_1024_dir = lambda wc: f"data/{wc.dataset}/downsampled/1024px/segs_converted",
+        unref_576_dir  = lambda wc: f"data/{wc.dataset}/downsampled/576px/segs_converted",
+        gt_1024_dir = "",
+        gt_576_dir  = "",
+        roi_1024_dir = "",
+        roi_576_dir  = "",
         gt_native_dir  = lambda wc: _vessel_native_dirs(wc.dataset)[0],
         seg_native_dir = lambda wc: _vessel_native_dirs(wc.dataset)[1],
     script:
