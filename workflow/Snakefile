@@ -109,6 +109,7 @@ include: "./rules/downsample.smk"
 include: "./rules/refinement.smk"
 include: "./rules/dice.smk"
 include: "./rules/gt_conversion.smk"
+include: "./rules/refined_rgb_to_labels.smk"
 
 rule all:
     input:
@@ -138,3 +139,11 @@ rule all:
         expand(f"{METRICS_DIR}" + "/{dataset}/metrics_1024.csv", dataset=METRICS_AV_SIMPLE),
         expand(f"{METRICS_DIR}" + "/{dataset}/metrics_576.csv",  dataset=METRICS_AV_SIMPLE),
         METRICS_AV_OTHERDIR_TARGETS,
+
+
+        expand(
+            rules.refined_rgb_to_labels.output.out_dir,
+            dataset=REFINE_DATASETS,
+            res=RESOLUTIONS,
+            k=k,
+        ),

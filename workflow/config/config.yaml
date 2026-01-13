@@ -62,3 +62,12 @@ ground_truth:
     datasets:
       FIVES:
         pattern: "FIVES/{other_dir}/ground_truth/{sample}.png"
+
+
+labels_out_root: "results/refined_labels"
+
+refined_to_labels:
+  tb: 100
+  th: 200
+  delta: 15
+  tie_vote: 1
