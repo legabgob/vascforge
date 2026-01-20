@@ -1,5 +1,13 @@
-# Segmentation relabelling
-
+```
+ _____                                 _        _   _                            _       _          _ _ _             
+/  ___|                               | |      | | (_)                          | |     | |        | | (_)            
+\ `--.  ___  __ _ _ __ ___   ___ _ __ | |_ __ _| |_ _  ___  _ __ ______ _ __ ___| | __ _| |__   ___| | |_ _ __   __ _ 
+ `--. \/ _ \/ _` | '_ ` _ \ / _ \ '_ \| __/ _` | __| |/ _ \| '_ \______| '__/ _ \ |/ _` | '_ \ / _ \ | | | '_ \ / _` |
+/\__/ /  __/ (_| | | | | | |  __/ | | | || (_| | |_| | (_) | | | |     | | |  __/ | (_| | |_) |  __/ | | | | | | (_| |
+\____/ \___|\__, |_| |_| |_|\___|_| |_|\__\__,_|\__|_|\___/|_| |_|     |_|  \___|_|\__,_|_.__/ \___|_|_|_|_| |_|\__, |
+             __/ |                                                                                               __/ |
+            |___/                                                                                               |___/ 
+```
 A Snakemake pipeline to **convert**, **mask/ROI**, **downsample**, **refine** retinal vessel segmentations (A/V/crossings) and optionally **evaluate** with DICE metrics.
 
 This repo is designed to be **portable across machines**: you configure a single root directory containing your dataset exports (e.g. `seg_legacy/`) and the pipeline builds a consistent `data/` workspace and `results/` outputs.
