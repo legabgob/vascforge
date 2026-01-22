@@ -112,7 +112,8 @@ include: "./rules/gt_conversion.smk"
 include: "./rules/refined_rgb_to_labels.smk"
 include: "./rules/vascx_dataset_from_refined.smk"
 include: "./rules/vascx_features_from_refined.smk"
-
+ruleorder: vascx_features_refined_otherdir > vascx_features_refined_simple
+ruleorder: make_vascx_view_otherdir > make_vascx_view_simple
 VASCX_REFINED = bool(config.get("vascx", {}).get("refined_features_enabled", True))
 
 if VASCX_REFINED:
