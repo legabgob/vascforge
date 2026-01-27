@@ -3,7 +3,7 @@ from snakemake.io import directory
 
 rule make_roi_masks:
     input:
-        csv = "data/{dataset}/meta/meta.csv"
+        csv = "data/{dataset}/meta/meta_filtered.csv"
     output:
         out_dir = directory("data/{dataset}/roi_masks")
     params:

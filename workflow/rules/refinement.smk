@@ -19,7 +19,7 @@ rule refinement:
             --images-path {input.segmentations} \
             --masks-path {input.masks} \
             --save-path {output.refined} \
-            --num-iterations {wildcards.k} \
+            --k {wildcards.k} \
             --refine
         """
 
