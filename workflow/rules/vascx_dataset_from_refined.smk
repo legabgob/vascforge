@@ -51,24 +51,58 @@ rule make_vascx_view_simple:
         original = original_dir_simple,
         # directory() is outputs-only; keep as plain path string for input
         av = f"{REF_LABEL_ROOT}" + "/{dataset}/k{k}/downsampled/{res}px",
-        meta = "data/datasets/{dataset}/meta/meta_filtered.csv",
+        meta = "data/{dataset}/meta/meta_filtered.csv",
     output:
         view = directory(f"{VASCX_VIEW_ROOT}" + "/{dataset}/k{k}/downsampled/{res}px"),
     run:
         view = Path(output.view)
         view.mkdir(parents=True, exist_ok=True)
 
-        orig_link = view / "original"
-        av_link = view / "av"
-        meta_link = view / "meta.csv"
+        # Create subdirs
+        original_dst = view / "original"
+        av_dst = view / "av"
+        meta_dst = view / "meta.csv"
+        original_dst.mkdir(parents=True, exist_ok=True)
+        av_dst.mkdir(parents=True, exist_ok=True)
 
-        for link in (orig_link, av_link, meta_link):
-            if link.exists() or link.is_symlink():
-                link.unlink()
+        # Hardlink files 
+        original_src = Path(input.original)
+        av_src = Path(input.av)
+        meta_src = Path(input.meta)
 
-        os.symlink(os.path.abspath(input.original), orig_link)
-        os.symlink(os.path.abspath(input.av), av_link)
-        os.symlink(os.path.abspath(input.meta), meta_link)
+        # Hardlink original files
+        for src_file in original_src.glob("*.png"):
+            dst_file = original_dst / src_file.name
+            if dst_file.exists():
+                dst_file.unlink()
+            os.link(src_file, dst_file)
+  
+        # Hardlink av files
+        for src_file in av_src.glob("*.png"):
+            dst_file = av_dst / src_file.name
+            if dst_file.exists():
+                dst_file.unlink()
+            os.link(src_file, dst_file)
+        # Hardlink meta files
+        if meta_dst.exists():
+            meta_dst.unlink()
+        os.link(meta_src, meta_dst)
+
+        print(f"[make_vascx_view_simple] Hardlinked {len(list(original_dst.glob('*.png')))} original files.")
+        print(f"[make_vascx_view_simple] Hardlinked {len(list(av_dst.glob('*.png')))} av files.")
+        print(f"[make_vascx_view_simple] Hardlinked meta file.")
+
+    #orig_link = view / "original"
+    #   av_link = view / "av"
+    #   meta_link = view / "meta.csv"
+    #
+    #   for link in (orig_link, av_link, meta_link):
+    #            if link.exists() or link.is_symlink():
+    #           link.unlink()
+    #
+    #   os.symlink(os.path.abspath(input.original), orig_link)
+    #   os.symlink(os.path.abspath(input.av), av_link)
+  #   os.symlink(os.path.abspath(input.meta), meta_link)
 
 
 rule make_vascx_view_otherdir:
@@ -77,22 +111,56 @@ rule make_vascx_view_otherdir:
     input:
         original = original_dir_other,
         av = f"{REF_LABEL_ROOT}" + "/{dataset}/k{k}/downsampled/{res}px",
-        meta = "data/datasets/{dataset}/meta/meta_filtered.csv",
+        meta = "data/{dataset}/meta/meta_filtered.csv",
     output:
         view = directory(f"{VASCX_VIEW_ROOT}" + "/{dataset}/{other_dir}/k{k}/downsampled/{res}px"),
     run:
         view = Path(output.view)
         view.mkdir(parents=True, exist_ok=True)
 
-        orig_link = view / "original"
-        av_link = view / "av"
-        meta_link = view / "meta.csv"
+        original_dst = view / "original"
+        av_dst = view / "av"
+        meta_dst = view / "meta.csv"
 
-        for link in (orig_link, av_link, meta_link):
-            if link.exists() or link.is_symlink():
-                link.unlink()
+        original_dst.mkdir(parents=True, exist_ok=True)
+        av_dst.mkdir(parents=True, exist_ok=True)
 
-        os.symlink(os.path.abspath(input.original), orig_link)
-        os.symlink(os.path.abspath(input.av), av_link)
-        os.symlink(os.path.abspath(input.meta), meta_link)
+        # Hardlink files 
+        original_src = Path(input.original)
+        av_src = Path(input.av)
+        meta_src = Path(input.meta)
+
+        # Hardlink original files
+        for src_file in original_src.glob("*.png"):
+            dst_file = original_dst / src_file.name
+            if dst_file.exists():
+                dst_file.unlink()
+            os.link(src_file, dst_file)
+
+        # Hardlink av files
+        for src_file in av_src.glob("*.png"):
+            dst_file = av_dst / src_file.name
+            if dst_file.exists():
+                dst_file.unlink()
+            os.link(src_file, dst_file)
+
+        # Hardlink meta files
+        if meta_dst.exists():
+            meta_dst.unlink()
+        os.link(meta_src, meta_dst)
+
+        print(f"[make_vascx_view_otherdir] Hardlinked {len(list(original_dst.glob('*.png')))} original files.")
+        print(f"[make_vascx_view_otherdir] Hardlinked {len(list(av_dst.glob('*.png')))} av files.")
+        print(f"[make_vascx_view_otherdir] Hardlinked meta file.")
+
+
+        
+
+    #for link in (orig_link, av_link, meta_link):
+    #       if link.exists() or link.is_symlink():
+    #           link.unlink()
+    #
+    #   os.symlink(os.path.abspath(input.original), orig_link)
+    #   os.symlink(os.path.abspath(input.av), av_link)
+    #   os.symlink(os.path.abspath(input.meta), meta_link)
 

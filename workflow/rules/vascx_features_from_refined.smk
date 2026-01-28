@@ -26,9 +26,11 @@ rule vascx_features_refined_simple:
         av_subfolder = AV_SUBFOLDER,
         sep = "\t",
         na_rep = "NaN",
+    log:
+        err = "../logs/vascx_features_refined_simple_{dataset}_k{k}_{res}px.err",
+        out = "../logs/vascx_features_refined_simple_{dataset}_k{k}_{res}px.out"
     script:
         "../scripts/vascx_feature_extract_smk.py"
-
 
 rule vascx_features_refined_otherdir:
     wildcard_constraints:
@@ -43,6 +45,8 @@ rule vascx_features_refined_otherdir:
         av_subfolder = AV_SUBFOLDER,
         sep = "\t",
         na_rep = "NaN",
+    log:
+        err = "../logs/vascx_features_refined_otherdir_{dataset}_{other_dir}_k{k}_{res}px.err",
+        out = "../logs/vascx_features_refined_otherdir_{dataset}_{other_dir}_k{k}_{res}px.out"
     script:
         "../scripts/vascx_feature_extract_smk.py"
-
