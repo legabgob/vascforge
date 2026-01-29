@@ -8,8 +8,8 @@ rule refinement:
             else "data/weights/rrwnet_RITE_refinement.pth"
         ),
         # These are produced by the downsample rule (directory outputs)
-        segmentations = "data/{dataset}/downsampled/{res}px/segs_converted",
-        masks = "data/{dataset}/downsampled/{res}px/roi_masks_binarized",
+        segmentations = "data/{dataset}/downsampled/{res}px/segs_converted_square",
+        masks = "data/{dataset}/downsampled/{res}px/roi_masks_binarized_square",
     output:
         refined = directory("results/refined/{dataset}/k{k}/downsampled/{res}px")
     resources:
