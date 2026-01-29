@@ -7,13 +7,13 @@ rule refinement:
             "data/weights/rrwnet_HRF_0.pth" if wc.res == "1024"
             else "data/weights/rrwnet_RITE_refinement.pth"
         ),
-        # These are produced by the downsample rule (directory outputs)
-        segmentations = "data/{dataset}/downsampled/{res}px/segs_converted",
-        masks = "data/{dataset}/downsampled/{res}px/roi_masks_binarized",
+        # Use filtered directories that contain only square images
+        segmentations = "data/{dataset}/downsampled/{res}px/segs_converted_square",
+        masks = "data/{dataset}/downsampled/{res}px/roi_masks_binarized_square",
     output:
         refined = directory("results/refined/{dataset}/k{k}/downsampled/{res}px")
     resources:
-        gpu_jobs=1
+        gpu_jobs = 1  # Limit GPU concurrent jobs to prevent OOM
     shell:
         r"""
         {config[rrwnet][python]} {config[rrwnet][script]} \
@@ -24,4 +24,3 @@ rule refinement:
             --k {wildcards.k} \
             --refine
         """
-
