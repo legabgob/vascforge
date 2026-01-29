@@ -116,7 +116,7 @@ include: "./rules/vascx_dataset_from_refined.smk"
 include: "./rules/vascx_features_from_refined.smk"
 include: "./rules/filter_meta.smk"
 include: "./rules/vascx_features_from_unrefined.smk"
-include: "./rules/filter_downsampled_square.smk"
+
 
 # Rule order
 ruleorder: vascx_features_refined_otherdir > vascx_features_refined_simple
