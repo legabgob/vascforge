@@ -118,13 +118,14 @@ def _metrics_inputs_simple(wc):
         for k in K_VALUES
         for res in RESOLUTIONS
     ]
+    # CHANGED: Use *_square directories
     unref_dirs = [
-        f"data/{ds}/downsampled/1024px/segs_converted",
-        f"data/{ds}/downsampled/576px/segs_converted",
+        f"data/{ds}/downsampled/1024px/segs_converted_square",
+        f"data/{ds}/downsampled/576px/segs_converted_square",
     ]
     roi_dirs = [
-        f"data/{ds}/downsampled/1024px/roi_masks_binarized",
-        f"data/{ds}/downsampled/576px/roi_masks_binarized",
+        f"data/{ds}/downsampled/1024px/roi_masks_binarized_square",
+        f"data/{ds}/downsampled/576px/roi_masks_binarized_square",
     ]
 
     if ds in AV_GT_DATASETS:
@@ -145,13 +146,14 @@ def _metrics_inputs_otherdir(wc):
         for k in K_VALUES
         for res in RESOLUTIONS
     ]
+    # CHANGED: Use *_square directories
     unref_dirs = [
-        f"data/{ds}/downsampled/1024px/segs_converted",
-        f"data/{ds}/downsampled/576px/segs_converted",
+        f"data/{ds}/downsampled/1024px/segs_converted_square",
+        f"data/{ds}/downsampled/576px/segs_converted_square",
     ]
     roi_dirs = [
-        f"data/{ds}/downsampled/1024px/roi_masks_binarized",
-        f"data/{ds}/downsampled/576px/roi_masks_binarized",
+        f"data/{ds}/downsampled/1024px/roi_masks_binarized_square",
+        f"data/{ds}/downsampled/576px/roi_masks_binarized_square",
     ]
     gt_dirs = [_gt_av_dir_other(ds, od, "1024"), _gt_av_dir_other(ds, od, "576")]
 
@@ -173,12 +175,14 @@ rule compute_metrics_av_simple:
     params:
         has_av_gt = 1,
         refined_root   = lambda wc: f"results/refined/{wc.dataset}",
-        unref_1024_dir = lambda wc: f"data/{wc.dataset}/downsampled/1024px/segs_converted",
-        unref_576_dir  = lambda wc: f"data/{wc.dataset}/downsampled/576px/segs_converted",
+        # CHANGED: Use *_square directories
+        unref_1024_dir = lambda wc: f"data/{wc.dataset}/downsampled/1024px/segs_converted_square",
+        unref_576_dir  = lambda wc: f"data/{wc.dataset}/downsampled/576px/segs_converted_square",
         gt_1024_dir = lambda wc: _gt_av_dir(wc.dataset, "1024"),
         gt_576_dir  = lambda wc: _gt_av_dir(wc.dataset, "576"),
-        roi_1024_dir = lambda wc: f"data/{wc.dataset}/downsampled/1024px/roi_masks_binarized",
-        roi_576_dir  = lambda wc: f"data/{wc.dataset}/downsampled/576px/roi_masks_binarized",
+        # CHANGED: Use *_square directories
+        roi_1024_dir = lambda wc: f"data/{wc.dataset}/downsampled/1024px/roi_masks_binarized_square",
+        roi_576_dir  = lambda wc: f"data/{wc.dataset}/downsampled/576px/roi_masks_binarized_square",
         gt_native_dir  = "",
         seg_native_dir = "",
     script:
@@ -196,12 +200,14 @@ rule compute_metrics_av_otherdir:
     params:
         has_av_gt = 1,
         refined_root   = lambda wc: f"results/refined/{wc.dataset}",
-        unref_1024_dir = lambda wc: f"data/{wc.dataset}/downsampled/1024px/segs_converted",
-        unref_576_dir  = lambda wc: f"data/{wc.dataset}/downsampled/576px/segs_converted",
+        # CHANGED: Use *_square directories
+        unref_1024_dir = lambda wc: f"data/{wc.dataset}/downsampled/1024px/segs_converted_square",
+        unref_576_dir  = lambda wc: f"data/{wc.dataset}/downsampled/576px/segs_converted_square",
         gt_1024_dir = lambda wc: _gt_av_dir_other(wc.dataset, wc.other_dir, "1024"),
         gt_576_dir  = lambda wc: _gt_av_dir_other(wc.dataset, wc.other_dir, "576"),
-        roi_1024_dir = lambda wc: f"data/{wc.dataset}/downsampled/1024px/roi_masks_binarized",
-        roi_576_dir  = lambda wc: f"data/{wc.dataset}/downsampled/576px/roi_masks_binarized",
+        # CHANGED: Use *_square directories
+        roi_1024_dir = lambda wc: f"data/{wc.dataset}/downsampled/1024px/roi_masks_binarized_square",
+        roi_576_dir  = lambda wc: f"data/{wc.dataset}/downsampled/576px/roi_masks_binarized_square",
         gt_native_dir  = "",
         seg_native_dir = "",
     script:
@@ -219,8 +225,9 @@ rule compute_metrics_vessel_only:
     params:
         has_av_gt = 0,
         refined_root   = lambda wc: f"results/refined/{wc.dataset}",
-        unref_1024_dir = lambda wc: f"data/{wc.dataset}/downsampled/1024px/segs_converted",
-        unref_576_dir  = lambda wc: f"data/{wc.dataset}/downsampled/576px/segs_converted",
+        # CHANGED: Use *_square directories
+        unref_1024_dir = lambda wc: f"data/{wc.dataset}/downsampled/1024px/segs_converted_square",
+        unref_576_dir  = lambda wc: f"data/{wc.dataset}/downsampled/576px/segs_converted_square",
         gt_1024_dir = "",
         gt_576_dir  = "",
         roi_1024_dir = "",
@@ -229,4 +236,3 @@ rule compute_metrics_vessel_only:
         seg_native_dir = lambda wc: _vessel_native_dirs(wc.dataset)[1],
     script:
         "../scripts/compute_metrics_smk.py"
-
