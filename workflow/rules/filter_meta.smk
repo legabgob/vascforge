@@ -23,7 +23,7 @@ rule filter_meta_by_segs:
 rule filter_nonsquare_images:
     input:
         meta = "data/{dataset}/meta/meta_filtered.csv",
-        segs_dir = "data/{dataset}/segs_converted"
+        segs_dir = "data/{dataset}/segs_converted",
         masks_dir = "data/{dataset}/roi_masks_binarized"
     output:
         meta = "data/{dataset}/meta/meta_filtered_square.csv"
