@@ -157,7 +157,7 @@ rule vascx_features_unrefined_simple:
         "logs/vascx_features_unrefined/{dataset}_{res}px.log"
     shell:
         r"""
-        python run_full_pipeline.py {input.ds_dir} \
+        python ./workflow/scripts/run_full_pipeline.py {input.ds_dir} \
             --skip-preprocessing \
             --skip-segmentation \
             --n-jobs {N_JOBS} \
@@ -179,7 +179,7 @@ rule vascx_features_unrefined_otherdir:
         "logs/vascx_features_unrefined/{dataset}_{other_dir}_{res}px.log"
     shell:
         r"""
-        python run_full_pipeline.py {input.ds_dir} \
+        python ./workflow/scripts/run_full_pipeline.py {input.ds_dir} \
             --skip-preprocessing \
             --skip-segmentation \
             --n-jobs {N_JOBS} \

@@ -16,8 +16,7 @@ METRICS_DIR = METRICS_CFG.get("out_dir", "results/metrics")
 RESOLUTIONS = [str(r) for r in config.get("resolutions", ["576", "1024"])]
 k_start, k_end = config.get("k_range", [3, 9])
 k = range(int(k_start), int(k_end))
-
-
+K_VALUES = list(k)  # For vascx features
 
 # ---------------- GT targets (optional) ----------------
 from pathlib import Path
@@ -105,6 +104,44 @@ VES_GT_OTHERDIR_TARGETS = [
     for res in RESOLUTIONS
 ]
 
+# ---------------- Dataset structure discovery for vascx features ----------------
+# Discover which datasets have other_dir structure (train/test/val splits)
+# by checking if they have {other_dir} in their GT pattern OR by detecting subdirs
+
+# Start with datasets that have {other_dir} in GT patterns
+VASCX_DATASETS_WITH_OTHERDIR = set(AV_GT_WITH_OTHERDIR + VES_GT_WITH_OTHERDIR)
+
+# For datasets without GT patterns, check legacy_root structure
+for d in DATASETS:
+    if d in VASCX_DATASETS_WITH_OTHERDIR:
+        continue
+    # Check if dataset has subdirs that look like splits (train/test/val)
+    legacy_path = Path(config.get("legacy_root", ".")) / d
+    if legacy_path.exists():
+        subdirs = [x.name for x in legacy_path.iterdir() if x.is_dir()]
+        # If it has common split names, treat as other_dir dataset
+        if any(s in subdirs for s in ["train", "test", "val", "training", "testing", "validation"]):
+            VASCX_DATASETS_WITH_OTHERDIR.add(d)
+
+SIMPLE_DATASETS = sorted([d for d in DATASETS if d not in VASCX_DATASETS_WITH_OTHERDIR])
+OTHERDIR_DATASETS = sorted([d for d in DATASETS if d in VASCX_DATASETS_WITH_OTHERDIR])
+
+# Build OTHERDIRS dict (combine from GT discoveries and apply exclusions)
+OTHERDIRS = {}
+for d in OTHERDIR_DATASETS:
+    if d in AV_OTHERDIRS:
+        OTHERDIRS[d] = AV_OTHERDIRS[d]  # Already filtered
+    elif d in VES_OTHERDIRS:
+        OTHERDIRS[d] = VES_OTHERDIRS[d]  # Already filtered
+    else:
+        # Discover from legacy_root
+        legacy_path = Path(config.get("legacy_root", ".")) / d
+        if legacy_path.exists():
+            subdirs = sorted([x.name for x in legacy_path.iterdir() if x.is_dir() and (x / "seg_legacy").exists()])
+            # Apply exclusions
+            excluded = METRICS_EXCLUDE_SPLITS.get(d, [])
+            filtered_subdirs = [s for s in subdirs if s not in excluded]
+            OTHERDIRS[d] = filtered_subdirs
 
 
 # Prevent dataset wildcards from accidentally matching paths like "refined/Fundus-AVSeg/k3"
@@ -138,7 +175,9 @@ include: "./rules/vascx_features_from_unrefined.smk"
 
 # Rule order
 ruleorder: vascx_features_refined_otherdir > vascx_features_refined_simple
+ruleorder: vascx_features_unrefined_otherdir > vascx_features_unrefined_simple
 ruleorder: make_vascx_view_otherdir > make_vascx_view_simple
+ruleorder: make_vascx_view_unrefined_otherdir > make_vascx_view_unrefined_simple
 
 VASCX_REFINED = bool(config.get("vascx", {}).get("refined_features_enabled", True))
 
