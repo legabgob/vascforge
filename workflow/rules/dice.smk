@@ -204,14 +204,6 @@ def _metrics_inputs_otherdir(wc):
 # Rules
 # --------------------------
 
-# Build wildcard constraints for other_dir (only valid splits)
-_valid_other_dirs = [
-    od
-    for d in METRICS_AV_OTHERDIR
-    for od in METRICS_AV_OTHERDIR_VALUES.get(d, [])
-]
-_other_dir_constraint = "|".join(map(re.escape, _valid_other_dirs)) if _valid_other_dirs else "NO_MATCH"
-
 rule compute_metrics_av_simple:
     """Compute metrics for A/V datasets whose GTs are in the simple layout."""
     wildcard_constraints:
@@ -240,8 +232,7 @@ rule compute_metrics_av_simple:
 rule compute_metrics_av_otherdir:
     """Compute metrics for A/V datasets with multiple GT subfolders ({other_dir})."""
     wildcard_constraints:
-        dataset="|".join(map(re.escape, METRICS_AV_OTHERDIR)) if METRICS_AV_OTHERDIR else "NO_MATCH",
-        other_dir=_other_dir_constraint
+        dataset="|".join(map(re.escape, METRICS_AV_OTHERDIR)) if METRICS_AV_OTHERDIR else "NO_MATCH"
     input:
         _metrics_inputs_otherdir
     output:
