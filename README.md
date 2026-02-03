@@ -12,237 +12,253 @@
                                                                     \______/           
 
 ```
-A Snakemake pipeline to **convert**, **mask/ROI**, **downsample**, **refine** retinal vessel segmentations (A/V/crossings) and optionally **evaluate** with DICE metrics.
 
-This repo is designed to be **portable across machines**: you configure a single root directory containing your dataset exports (e.g. `seg_legacy/`) and the pipeline builds a consistent `data/` workspace and `results/` outputs.
+# VascForge
 
----
+A **Snakemake pipeline** for processing, refining, and evaluating retinal vessel segmentations. VascForge automates the workflow from raw segmentation outputs through refinement using [RRWNet](https://github.com/your-org/rrwnet), and produces quantitative metrics and vascular features.
 
-## What this pipeline does
+## Features
 
-Given dataset outputs produced by your legacy tooling (typically `seg_legacy/`), the workflow can:
+- **Format Conversion**: Convert grayscale A/V label maps (0/1/2/3) to RGB label maps (arteries/veins/crossings)
+- **ROI Masking**: Create and apply circular ROI masks from metadata CSV files
+- **Downsampling**: Resize predictions and masks to target resolutions (e.g., 576px, 1024px)
+- **Refinement**: Apply RRWNet iterative refinement with configurable k iterations
+- **DICE Metrics**: Compute per-class and macro-average DICE scores against ground truth
+- **Feature Extraction**: Extract vascular biomarkers using the VascX library (tortuosity, caliber, bifurcations, etc.)
 
-1. **Convert** grayscale A/V label maps → RGB label maps (A/V/crossings mapping).
-2. **Copy metadata** (`meta.csv` or `bounds.csv`) into the workspace.
-3. **Create ROI masks** from `meta.csv` or `bounds.csv` (circular ROI).
-4. **Binarize ROI masks** (e.g. convert `1 → 255` if needed).
-5. **Downsample** predicted labels, ROI masks (and optionally GTs) to target resolutions (e.g. 576px, 1024px).
-6. **Refine** predictions using RRWNet refinement (`k` iterations) and write refined outputs.
-7. **Compute DICE metrics** (optional) for:
-   - datasets with A/V ground truth (RGB GT), and/or
-   - datasets with vessel-only ground truth.
+## Repository Structure
 
-The workflow supports datasets that are organized either as:
-
-- `ROOT/{dataset}/seg_legacy/...`
-- `ROOT/{dataset}/{other_dir}/seg_legacy/...`  (multiple `other_dir` per dataset, kept separate)
-
----
-
-## Repository layout
-
-- `workflow/`
-  - `Snakefile` – main entrypoint
-  - `config/config.yaml` – all configuration (paths, datasets, refinement grid, metrics, GT handling)
-  - `rules/` – modular rules (`vascxgray_to_rgb.smk`, `copy_meta.smk`, `create_roi_masks.smk`, `binarize_masks.smk`, `downsample.smk`, `refinement.smk`, `dice.smk`, etc.)
-- `scripts/`
-  - Snakemake-friendly scripts (directory-to-directory batch processing, ROI creation, metrics computation)
-- `data/` *(generated)* – standardized workspace outputs
-- `results/` *(generated)* – refined predictions + evaluation outputs
-
----
+```
+vascforge/
+├── workflow/
+│   ├── Snakefile              # Main workflow entrypoint
+│   ├── config/
+│   │   └── config.yaml        # Pipeline configuration
+│   ├── envs/
+│   │   └── environment.yaml   # Conda environment specification
+│   ├── rules/                 # Modular Snakemake rules
+│   │   ├── vascxgray_to_rgb.smk
+│   │   ├── copy_meta.smk
+│   │   ├── create_roi_masks.smk
+│   │   ├── binarize_masks.smk
+│   │   ├── downsample.smk
+│   │   ├── refinement.smk
+│   │   ├── dice.smk
+│   │   ├── gt_conversion.smk
+│   │   └── ...
+│   └── scripts/               # Python scripts called by rules
+│       ├── gray_to_rgb_dir_smk.py
+│       ├── downsample_dir_smk.py
+│       ├── compute_metrics_smk.py
+│       ├── run_full_pipeline.py
+│       └── ...
+├── data/
+│   └── weights/               # Pre-trained RRWNet model weights
+└── README.md
+```
 
 ## Installation
 
-### 1) Clone
+### 1. Clone the Repository
 
 ```bash
-git clone <your-repo-url>
-cd segmentation-relabelling
+git clone https://github.com/your-org/vascforge.git
+cd vascforge
 ```
 
-### 2) Environment
+### 2. Create the Environment
 
-You need Python 3.10+ and the core packages used by the scripts:
-
-- `snakemake`
-- `numpy`
-- `pillow`
-- `pandas` (for metrics)
-
-If you use conda/mamba:
+Using conda or mamba:
 
 ```bash
-mamba create -n relabelling -c conda-forge python=3.10 snakemake pandas numpy pillow
-mamba activate relabelling
+mamba create -n vascforge -c conda-forge python=3.10 snakemake pandas numpy pillow
+mamba activate vascforge
 ```
 
----
+Or use the provided environment file:
 
-## Configuration (`workflow/config/config.yaml`)
+```bash
+mamba env create -f workflow/envs/environment.yaml
+mamba activate vascforge
+```
 
-The pipeline is driven by `workflow/config/config.yaml`.
+### 3. Configure External Dependencies
 
-At minimum, set:
+The pipeline requires:
+- **RRWNet**: Set the path to `get_predictions.py` in `workflow/config/config.yaml`
+- **VascX** (optional): For vascular feature extraction
 
-- `legacy_root`: the **root directory** where dataset exports live (contains the datasets folders).
-- `datasets`: which datasets to process.
-- `resolutions`: list of downsample widths.
-- `k_range`: refinement iteration range.
+## Configuration
 
-Example skeleton:
+Edit `workflow/config/config.yaml` to configure the pipeline:
 
 ```yaml
-legacy_root: "/HDD/data/relabelling-project"
+# Root directory containing your datasets
+legacy_root: "/path/to/your/data"
 
+# RRWNet configuration
+rrwnet:
+  script: "/path/to/rrwnet/get_predictions.py"
+  python: "python3"
+
+# Model weights (shipped with repo)
+weights:
+  "1024": "data/weights/rrwnet_HRF_0.pth"
+  "576": "data/weights/rrwnet_RITE_refinement.pth"
+
+# Datasets to process
 datasets:
-  - Fundus-AVSeg
-  - leuven-haifa
-  - FIVES
+  - "Fundus-AVSeg"
+  - "FIVES"
+  - "leuven-haifa"
 
+# Target resolutions
 resolutions: ["576", "1024"]
-k_range: [3, 9]   # produces k=3..8
+
+# Refinement iterations (k=3 through k=8)
+k_range: [3, 9]
 ```
 
-### Datasets with `{other_dir}`
+### Dataset Structure
 
-Some datasets are structured as:
-
-```
-legacy_root/dataset/other_dir/seg_legacy/...
-```
-
-The workflow auto-detects these and preserves separation under:
+VascForge expects datasets organized as:
 
 ```
-data/{dataset}/{other_dir}/...
+legacy_root/
+├── Dataset-Name/
+│   └── seg_legacy/
+│       ├── original/     # Original fundus images
+│       ├── av/           # A/V segmentation masks
+│       ├── ce/           # Contrast-enhanced images
+│       ├── rgb/          # RGB preprocessed images
+│       ├── discs/        # Optic disc masks
+│       ├── fovea.csv     # Fovea coordinates
+│       └── meta.csv      # Image metadata (bounds, centers, radii)
 ```
 
-### Model weights
+For datasets with train/test/val splits:
 
-Refinement uses RRWNet weights. If you keep weights in-repo, use Git LFS (recommended). If you keep them outside the repo, point to them via config.
+```
+legacy_root/
+├── Dataset-Name/
+│   ├── train/
+│   │   └── seg_legacy/...
+│   ├── test/
+│   │   └── seg_legacy/...
+│   └── val/
+│       └── seg_legacy/...
+```
 
----
+## Usage
 
-## Running the workflow
+### Dry Run (Recommended First)
 
-From the repo root:
-
-### Dry run (recommended)
+Preview what the pipeline will do:
 
 ```bash
 snakemake -n
 ```
 
-### Print commands + reasons (still dry)
+Show commands and reasons:
 
 ```bash
 snakemake -n -p -r
 ```
 
-### Run
+### Run the Pipeline
+
+Execute with 8 parallel jobs:
 
 ```bash
 snakemake -j 8
 ```
 
----
+### Visualize the DAG
+
+Generate a workflow graph:
+
+```bash
+snakemake --dag | dot -Tpng > workflow_dag.png
+```
 
 ## Outputs
 
-### Workspace outputs (`data/`)
+### Workspace (`data/`)
 
-Common outputs include:
+- `data/{dataset}/segs_converted/` — RGB converted predictions
+- `data/{dataset}/meta/meta.csv` — Copied metadata
+- `data/{dataset}/roi_masks/` — Generated ROI masks
+- `data/{dataset}/roi_masks_binarized/` — Binarized ROI masks (0/255)
+- `data/{dataset}/downsampled/{res}px/` — Downsampled predictions, masks, and GTs
 
-- `data/{dataset}/segs_converted/`  
-  RGB converted predictions (from grayscale labels)
-- `data/{dataset}/meta/meta.csv`  
-  Copied metadata (`meta.csv` or `bounds.csv`)
-- `data/{dataset}/roi_masks/`  
-  ROI masks generated from metadata
-- `data/{dataset}/roi_masks_binarized/`  
-  Clean/binarized ROI masks
-- `data/{dataset}/downsampled/{res}px/...`  
-  Downsampled predictions / masks / (optionally) GTs
+### Refined Predictions (`results/refined/`)
 
-If a dataset has multiple `other_dir`, the outputs become:
-
-- `data/{dataset}/{other_dir}/...`
-
-### Refined predictions (`results/`)
-
-Refinement outputs:
-
-- `results/refined/{dataset}/k{k}/downsampled/{res}px/`
-
-Each `k` and resolution gets its own directory.
+- `results/refined/{dataset}/k{k}/downsampled/{res}px/` — Refined segmentations for each k value
 
 ### Metrics (`results/metrics/`)
 
-Metrics are written to:
+- `results/metrics/{dataset}/metrics_{res}.csv` — DICE scores per image
 
-- Simple layout:
-  - `results/metrics/{dataset}/metrics_1024.csv`
-  - `results/metrics/{dataset}/metrics_576.csv`
-- `{other_dir}` layout (GTs separated by `other_dir`):
-  - `results/metrics/{dataset}/{other_dir}/metrics_1024.csv`
-  - `results/metrics/{dataset}/{other_dir}/metrics_576.csv`
+### Vascular Features (`results/vascx_features_*/`)
 
----
+- `results/vascx_features_refined/{dataset}/...` — Features from refined segmentations
+- `results/vascx_features_unrefined/{dataset}/...` — Features from original segmentations
 
-## Ground truth (optional)
+## Ground Truth Configuration
 
-Some datasets have A/V ground truth (RGB GT), others only vessel ground truth (grayscale).
-
-The workflow supports GT ingestion + conversion + downsampling when enabled in config:
+Enable ground truth processing in config:
 
 ```yaml
 ground_truth:
   enabled: true
-  # root: "/path/to/gt_root"  # defaults to legacy_root if omitted
-
+  
   av_rgb:
     datasets:
       Fundus-AVSeg:
-        pattern: "Fundus-AVSeg/GTs/{sample}.png"
+        pattern: "Fundus-AVSeg/annotation/{sample}.png"
         mapping:
-          - [[255, 0, 0], [255, 0, 255]]
-          - [[0, 0, 255], [0, 255, 255]]
-          - [[0, 255, 0], [255, 255, 255]]
-          - [[255, 255, 255], [0, 0, 255]]
-
-      leuven-haifa:
-        pattern: "leuven-haifa/{other_dir}/label/{sample}.png"
-        mapping: [...]
+          - [[255, 0, 0], [255, 0, 255]]     # Red → Magenta (arteries)
+          - [[0, 0, 255], [0, 255, 255]]     # Blue → Cyan (veins)
+          - [[0, 255, 0], [255, 255, 255]]   # Green → White (crossings)
+          - [[255, 255, 255], [0, 0, 255]]   # White → Blue (vessels)
 
   vessel_gray:
     datasets:
       FIVES:
-        pattern: "FIVES/{other_dir}/GTs/{sample}.png"
+        pattern: "FIVES/{other_dir}/ground_truth/{sample}.png"
 ```
 
-- A/V GTs end up as `.../downsampled/{res}px/GTs`
-- vessel-only GTs end up as `.../downsampled/{res}px/GTs_vessel`
+## Troubleshooting
 
----
+### "Missing input files … GTs"
 
-## Common troubleshooting
+Ensure your ground truth patterns include `{other_dir}` if the dataset uses train/test/val splits.
 
-### “Missing input files … GTs”
-If a dataset’s GTs use `{other_dir}`, metrics must be computed per `(dataset, other_dir)`.
-Make sure:
-- your `ground_truth` patterns include `{other_dir}`
-- `rule all` includes the correct targets
-- your metrics rules are split into *simple* vs *other_dir* variants
+### "The flag 'directory' is only valid for outputs"
 
-### “The flag 'directory' is only valid for outputs”
 In Snakemake, `directory()` must only be used for **outputs**, not inputs.
-Inputs should be plain strings (or functions returning strings).
 
-### Visualize the DAG
-`snakemake --dag` prints a Graphviz DOT graph to stdout:
+### Permission Issues with Model Weights
+
+The weights in `data/weights/` should be readable. If using Git LFS, run:
 
 ```bash
-snakemake --dag | dot -Tpng > dag.png
+git lfs pull
 ```
 
+## Citation
+
+If you use VascForge in your research, please cite:
+
+```bibtex
+@software{vascforge,
+  title = {VascForge: A Pipeline for Retinal Vessel Segmentation Processing},
+  author = {Your Name},
+  year = {2024},
+  url = {https://github.com/your-org/vascforge}
+}
+```
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

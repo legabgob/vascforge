@@ -227,6 +227,9 @@ data/*
 
 results/*
 
+# Generated plots/visualizations
+plots/
+
 debug/
 
 nohup.out
