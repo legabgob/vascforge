@@ -75,7 +75,9 @@ refined_to_labels:
 vascx:
   refined_features_enabled: true
   dataset_view_root: "results/vascx_datasets"
+  dataset_unrefined_root: "results/vascx_datasets_unrefined"
   features_refined_out: "results/vascx_features_refined"
+  features_unrefined_out: "results/vascx_features_unrefined"
   n_jobs: 64
   feature_set: "bergmann"
   av_subfolder: "av"

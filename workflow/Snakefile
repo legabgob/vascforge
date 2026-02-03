@@ -147,6 +147,28 @@ if VASCX_REFINED:
 else:
     VASCX_REFINED_TARGETS = []
 
+VASCX_UNREFINED = bool(config.get("vascx", {}).get("unrefined_features_enabled", False))
+
+if VASCX_UNREFINED:
+    VASCX_UNREFINED_TARGETS = []
+    
+    # Simple datasets
+    VASCX_UNREFINED_TARGETS += expand(
+        rules.vascx_features_unrefined_simple.output.features,
+        dataset=SIMPLE_DATASETS,
+        res=RESOLUTIONS,
+    )
+    
+    # Other-dir datasets
+    VASCX_UNREFINED_TARGETS += [
+        f"{config.get('vascx', {}).get('features_unrefined_out', 'results/vascx_features_unrefined')}/{d}/{od}/downsampled/{res}px/vascx_features.tsv"
+        for d in OTHERDIR_DATASETS
+        for od in OTHERDIRS.get(d, [])
+        for res in RESOLUTIONS
+    ]
+else:
+    VASCX_UNREFINED_TARGETS = []
+
 rule all:
     input:
         # Ensure meta gets copied for all datasets
@@ -185,6 +207,7 @@ rule all:
         ),
 
         VASCX_REFINED_TARGETS,
+        VASCX_UNREFINED_TARGETS,
 
     log:
         errors="logs/all.err",
