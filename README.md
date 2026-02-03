@@ -15,7 +15,7 @@
 
 # VascForge
 
-A **Snakemake pipeline** for processing, refining, and evaluating retinal vessel segmentations. VascForge automates the workflow from raw segmentation outputs through refinement using [RRWNet](https://github.com/your-org/rrwnet), and produces quantitative metrics and vascular features.
+A **Snakemake pipeline** for processing, refining, and evaluating retinal vessel segmentations. VascForge automates the workflow from raw segmentation outputs through refinement using RRWNet, and produces quantitative metrics and vascular features.
 
 ## Features
 
@@ -62,7 +62,7 @@ vascforge/
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/your-org/vascforge.git
+git clone https://github.com/legabgob/vascforge.git
 cd vascforge
 ```
 
@@ -253,9 +253,8 @@ If you use VascForge in your research, please cite:
 ```bibtex
 @software{vascforge,
   title = {VascForge: A Pipeline for Retinal Vessel Segmentation Processing},
-  author = {Your Name},
-  year = {2024},
-  url = {https://github.com/your-org/vascforge}
+  year = {2025},
+  url = {https://github.com/legabgob/vascforge}
 }
 ```
 
