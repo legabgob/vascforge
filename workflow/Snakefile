@@ -43,11 +43,21 @@ AV_GT_WITH_OTHERDIR = [
 AV_GT_SIMPLE = [d for d in AV_GT_DATASETS_ALL if d not in AV_GT_WITH_OTHERDIR]
 
 # Discover other_dir values for datasets that use {other_dir}
+# Apply exclusions from metrics.exclude_splits config
+METRICS_EXCLUDE_SPLITS = METRICS_CFG.get("exclude_splits", {})
+
 AV_OTHERDIRS = {}
 for d in AV_GT_WITH_OTHERDIR:
     abs_pat = str(GT_ROOT / AV_CFG[d]["pattern"])
     ods, _samples = glob_wildcards(abs_pat)
-    AV_OTHERDIRS[d] = sorted(set(ods))
+    
+    # Apply exclusions for this dataset
+    excluded = METRICS_EXCLUDE_SPLITS.get(d, [])
+    if excluded:
+        print(f"Excluding splits for {d} (from config): {excluded}")
+    
+    filtered_ods = [od for od in set(ods) if od not in excluded]
+    AV_OTHERDIRS[d] = sorted(filtered_ods)
 
 # Pre-build targets for other_dir datasets (since expand() doesn't do per-dataset lists nicely)
 GT_AV_OTHERDIR_TARGETS = [
@@ -79,7 +89,14 @@ VES_OTHERDIRS = {}
 for d in VES_GT_WITH_OTHERDIR:
     abs_pat = str(GT_ROOT / VES_CFG[d]["pattern"])
     ods, _samples = glob_wildcards(abs_pat)
-    VES_OTHERDIRS[d] = sorted(set(ods))
+    
+    # Apply exclusions for this dataset
+    excluded = METRICS_EXCLUDE_SPLITS.get(d, [])
+    if excluded:
+        print(f"Excluding vessel splits for {d} (from config): {excluded}")
+    
+    filtered_ods = [od for od in set(ods) if od not in excluded]
+    VES_OTHERDIRS[d] = sorted(filtered_ods)
 
 VES_GT_OTHERDIR_TARGETS = [
     f"data/{d}/{od}/downsampled/{res}px/GTs_vessel"
