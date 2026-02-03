@@ -32,10 +32,15 @@ rule make_vascx_view_unrefined_simple:
     run:
         from PIL import Image
         import shutil
+        import pandas as pd
         
         view = Path(output.view)
         view.mkdir(parents=True, exist_ok=True)
         seg_legacy = Path(input.seg_legacy)
+        
+        # Read metadata to get valid image IDs
+        meta_df = pd.read_csv(input.meta)
+        valid_ids = set(meta_df['id'].values)
         
         # Symlink folders that don't need processing
         for folder in ["original", "ce", "rgb", "discs"]:
@@ -62,15 +67,24 @@ rule make_vascx_view_unrefined_simple:
             meta_link.unlink()
         os.symlink(os.path.abspath(input.meta), meta_link)
         
-        # Downsample av/ folder to target resolution
+        # Downsample av/ folder to target resolution - ONLY for valid IDs
         av_src = seg_legacy / "av"
         av_dst = view / "av"
         av_dst.mkdir(exist_ok=True)
         
         target_res = int(wildcards.res)
         count = 0
+        skipped = 0
         
         for img_file in av_src.glob("*.png"):
+            # Extract ID from filename (remove extension)
+            img_id = img_file.stem
+            
+            # Only process if ID is in filtered metadata
+            if img_id not in valid_ids:
+                skipped += 1
+                continue
+            
             img = Image.open(img_file)
             
             # Downsample if needed
@@ -80,7 +94,7 @@ rule make_vascx_view_unrefined_simple:
             img.save(av_dst / img_file.name)
             count += 1
         
-        print(f"[make_vascx_view_unrefined_simple] Processed {count} av images at {target_res}px")
+        print(f"[make_vascx_view_unrefined_simple] Processed {count} av images at {target_res}px (skipped {skipped} not in metadata)")
 
 
 rule make_vascx_view_unrefined_otherdir:
@@ -95,10 +109,15 @@ rule make_vascx_view_unrefined_otherdir:
     run:
         from PIL import Image
         import shutil
+        import pandas as pd
         
         view = Path(output.view)
         view.mkdir(parents=True, exist_ok=True)
         seg_legacy = Path(input.seg_legacy)
+        
+        # Read metadata to get valid image IDs
+        meta_df = pd.read_csv(input.meta)
+        valid_ids = set(meta_df['id'].values)
         
         # Symlink folders that don't need processing
         for folder in ["original", "ce", "rgb", "discs"]:
@@ -125,15 +144,24 @@ rule make_vascx_view_unrefined_otherdir:
             meta_link.unlink()
         os.symlink(os.path.abspath(input.meta), meta_link)
         
-        # Downsample av/ folder to target resolution
+        # Downsample av/ folder to target resolution - ONLY for valid IDs
         av_src = seg_legacy / "av"
         av_dst = view / "av"
         av_dst.mkdir(exist_ok=True)
         
         target_res = int(wildcards.res)
         count = 0
+        skipped = 0
         
         for img_file in av_src.glob("*.png"):
+            # Extract ID from filename (remove extension)
+            img_id = img_file.stem
+            
+            # Only process if ID is in filtered metadata
+            if img_id not in valid_ids:
+                skipped += 1
+                continue
+            
             img = Image.open(img_file)
             
             # Downsample if needed
@@ -143,7 +171,7 @@ rule make_vascx_view_unrefined_otherdir:
             img.save(av_dst / img_file.name)
             count += 1
         
-        print(f"[make_vascx_view_unrefined_otherdir] Processed {count} av images at {target_res}px")
+        print(f"[make_vascx_view_unrefined_otherdir] Processed {count} av images at {target_res}px (skipped {skipped} not in metadata)")
 
 
 rule vascx_features_unrefined_simple:
