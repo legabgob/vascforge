@@ -58,15 +58,11 @@ GT_AV_OTHERDIR_TARGETS = [
 ]
 
 # --- Metrics targets ---
+# NOTE: METRICS_AV_OTHERDIR_TARGETS is built after dice.smk include to use 
+# METRICS_AV_OTHERDIR_VALUES, which automatically filters out splits without 
+# segmentations based on config.metrics.exclude_splits and file overlap detection
 METRICS_AV_WITH_OTHERDIR = [d for d in METRICS_DATASETS if d in AV_GT_WITH_OTHERDIR]
 METRICS_AV_SIMPLE = [d for d in METRICS_DATASETS if d not in METRICS_AV_WITH_OTHERDIR]
-
-METRICS_AV_OTHERDIR_TARGETS = [
-    f"{METRICS_DIR}/{d}/{od}/metrics_{res}.csv"
-    for d in METRICS_AV_WITH_OTHERDIR
-    for od in AV_OTHERDIRS.get(d, [])
-    for res in ["1024", "576"]
-]
 
 # Split vessel-only datasets into those with and without {other_dir}
 VES_GT_WITH_OTHERDIR = [
@@ -112,6 +108,16 @@ include: "./rules/downsample.smk"
 include: "./rules/filter_downsampled_dirs.smk"
 include: "./rules/refinement.smk"
 include: "./rules/dice.smk"
+
+# Build metrics targets using filtered split values from dice.smk
+# METRICS_AV_OTHERDIR_VALUES only contains valid splits (excludes test/val if no segs)
+METRICS_AV_OTHERDIR_TARGETS = [
+    f"{METRICS_DIR}/{d}/{od}/metrics_{res}.csv"
+    for d in METRICS_AV_WITH_OTHERDIR
+    for od in METRICS_AV_OTHERDIR_VALUES.get(d, [])  # Use filtered values from dice.smk
+    for res in ["1024", "576"]
+]
+
 include: "./rules/gt_conversion.smk"
 include: "./rules/refined_rgb_to_labels.smk"
 include: "./rules/vascx_dataset_from_refined.smk"
@@ -122,6 +128,12 @@ include: "./rules/vascx_features_from_unrefined.smk"
 # Rule order
 ruleorder: vascx_features_refined_otherdir > vascx_features_refined_simple
 ruleorder: make_vascx_view_otherdir > make_vascx_view_simple
+
+# Define variables needed for vascx target building
+K_VALUES = list(k)
+SIMPLE_DATASETS = [d for d in REFINE_DATASETS if d not in AV_GT_WITH_OTHERDIR]
+OTHERDIR_DATASETS = [d for d in REFINE_DATASETS if d in AV_GT_WITH_OTHERDIR]
+OTHERDIRS = AV_OTHERDIRS  # Use discovered other_dir values
 
 VASCX_REFINED = bool(config.get("vascx", {}).get("refined_features_enabled", True))
 
