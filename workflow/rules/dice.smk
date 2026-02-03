@@ -75,6 +75,10 @@ METRICS_VESSEL_ONLY = sorted([d for d in METRICS_DATASETS if d not in AV_GT_DATA
 
 # For other_dir A/V datasets, discover available other_dir values by globbing the configured GT pattern.
 METRICS_AV_OTHERDIR_VALUES = {}  # dataset -> [other_dir,...]
+
+# Get exclusion list from config
+METRICS_EXCLUDE_SPLITS = METRICS_CFG.get("exclude_splits", {})
+
 for d in METRICS_AV_OTHERDIR:
     spec = AV_CFG.get(d, {}) or {}
     pat = spec.get("pattern")
@@ -85,7 +89,44 @@ for d in METRICS_AV_OTHERDIR:
     GT_ROOT = Path(GT_CFG.get("root", config.get("legacy_root", "."))).resolve()
     abs_pat = str(GT_ROOT / pat)
     other_dirs, _samples = glob_wildcards(abs_pat)  # expects (other_dir, sample)
-    METRICS_AV_OTHERDIR_VALUES[d] = sorted(set(other_dirs))
+    
+    # Apply exclusions from config
+    excluded = METRICS_EXCLUDE_SPLITS.get(d, [])
+    if excluded:
+        print(f"Excluding splits for {d} (from config): {excluded}")
+    
+    # Filter to only include splits that have overlap with segmentations
+    # For datasets with split-specific GTs but dataset-level segs, check for file overlap
+    valid_other_dirs = []
+    for od in set(other_dirs):
+        # Skip if explicitly excluded in config
+        if od in excluded:
+            continue
+            
+        has_overlap = False
+        for res in RESOLUTIONS:
+            # Try split-specific segs first
+            seg_dir = Path(f"data/{d}/{od}/downsampled/{res}px/segs_converted_square")
+            if not seg_dir.exists():
+                # Fall back to dataset-level segs
+                seg_dir = Path(f"data/{d}/downsampled/{res}px/segs_converted_square")
+            
+            # Check for overlap with split-specific GTs
+            gt_dir = Path(f"data/{d}/{od}/downsampled/{res}px/GTs")
+            
+            if seg_dir.exists() and gt_dir.exists():
+                seg_names = {p.stem for p in seg_dir.glob("*.png")}
+                gt_names = {p.stem for p in gt_dir.glob("*.png")}
+                if seg_names & gt_names:  # If there's overlap
+                    has_overlap = True
+                    break
+        
+        if has_overlap:
+            valid_other_dirs.append(od)
+        else:
+            print(f"Skipping {d}/{od} for metrics: no overlap between segmentations and GTs")
+    
+    METRICS_AV_OTHERDIR_VALUES[d] = sorted(valid_other_dirs)
 
 # --------------------------
 # Helper functions

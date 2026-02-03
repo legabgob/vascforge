@@ -33,6 +33,11 @@ metrics:
     - "Fundus-AVSeg"
     - "leuven-haifa"
 
+  exclude_splits:
+    leuven-haifa:
+      - test
+      - val
+
 ground_truth:
   enabled: true
   # Set enabled: true once you have configured the patterns below.
