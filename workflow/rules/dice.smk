@@ -232,7 +232,12 @@ rule compute_metrics_av_simple:
 rule compute_metrics_av_otherdir:
     """Compute metrics for A/V datasets with multiple GT subfolders ({other_dir})."""
     wildcard_constraints:
-        dataset="|".join(map(re.escape, METRICS_AV_OTHERDIR)) if METRICS_AV_OTHERDIR else "NO_MATCH"
+    dataset="|".join(map(re.escape, METRICS_AV_OTHERDIR)) if METRICS_AV_OTHERDIR else "NO_MATCH",
+    other_dir="|".join([
+        re.escape(od)
+        for d in METRICS_AV_OTHERDIR
+        for od in METRICS_AV_OTHERDIR_VALUES.get(d, [])
+    ]) if any(METRICS_AV_OTHERDIR_VALUES.values()) else "NO_MATCH" 
     input:
         _metrics_inputs_otherdir
     output:
