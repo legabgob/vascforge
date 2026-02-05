@@ -87,3 +87,4 @@ vascx:
   n_jobs: 64
   feature_set: "bergmann"
   av_subfolder: "av"
+  aggregation_enabled: true

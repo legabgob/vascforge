@@ -92,8 +92,8 @@ for d in METRICS_AV_OTHERDIR:
     
     # Apply exclusions from config
     excluded = METRICS_EXCLUDE_SPLITS.get(d, [])
-    if excluded:
-        print(f"Excluding splits for {d} (from config): {excluded}")
+  #if excluded:
+  #     print(f"Excluding splits for {d} (from config): {excluded}")
     
     # Filter to only include splits that have overlap with segmentations
     # For datasets with split-specific GTs but dataset-level segs, check for file overlap

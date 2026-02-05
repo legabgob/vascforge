@@ -52,8 +52,8 @@ for d in AV_GT_WITH_OTHERDIR:
     
     # Apply exclusions for this dataset
     excluded = METRICS_EXCLUDE_SPLITS.get(d, [])
-    if excluded:
-        print(f"Excluding splits for {d} (from config): {excluded}")
+    #if excluded:
+    #  print(f"Excluding splits for {d} (from config): {excluded}")
     
     filtered_ods = [od for od in set(ods) if od not in excluded]
     AV_OTHERDIRS[d] = sorted(filtered_ods)
@@ -91,8 +91,8 @@ for d in VES_GT_WITH_OTHERDIR:
     
     # Apply exclusions for this dataset
     excluded = METRICS_EXCLUDE_SPLITS.get(d, [])
-    if excluded:
-        print(f"Excluding vessel splits for {d} (from config): {excluded}")
+    #if excluded:
+    #   print(f"Excluding vessel splits for {d} (from config): {excluded}")
     
     filtered_ods = [od for od in set(ods) if od not in excluded]
     VES_OTHERDIRS[d] = sorted(filtered_ods)
@@ -171,11 +171,13 @@ include: "./rules/refined_rgb_to_labels.smk"
 include: "./rules/vascx_dataset_from_refined.smk"
 include: "./rules/vascx_features_from_refined.smk"
 include: "./rules/vascx_features_from_unrefined.smk"
+include: "./rules/aggregate_vascx_features.smk"
 
 
 # Rule order
 ruleorder: vascx_features_refined_otherdir > vascx_features_refined_simple
 ruleorder: vascx_features_unrefined_otherdir > vascx_features_unrefined_simple
+ruleorder: aggregate_vascx_otherdir > aggregate_vascx_simple
 ruleorder: make_vascx_view_otherdir > make_vascx_view_simple
 ruleorder: make_vascx_view_unrefined_otherdir > make_vascx_view_unrefined_simple
 
@@ -225,6 +227,30 @@ if VASCX_UNREFINED:
 else:
     VASCX_UNREFINED_TARGETS = []
 
+# VascX aggregation (optional)
+VASCX_AGGREGATED = bool(config.get("vascx", {}).get("aggregation_enabled", False))
+
+if VASCX_AGGREGATED:
+    VASCX_AGGREGATED_TARGETS = []
+    
+    # Simple datasets
+    VASCX_AGGREGATED_TARGETS += expand(
+        rules.aggregate_vascx_simple.output.aggregated,
+        dataset=SIMPLE_DATASETS,
+        res=RESOLUTIONS,
+    )
+    
+    # Other-dir datasets
+    VASCX_AGGREGATED_TARGETS += [
+        f"{config.get('vascx', {}).get('aggregated_out', 'results/vascx_aggregated')}/{d}/{od}/downsampled/{res}px/vascx_features_aggregated.tsv"
+        for d in OTHERDIR_DATASETS
+        for od in OTHERDIRS.get(d, [])
+        for res in RESOLUTIONS
+    ]
+else:
+    VASCX_AGGREGATED_TARGETS = []
+
+
 rule all:
     input:
         # Ensure meta gets copied for all datasets
@@ -264,6 +290,8 @@ rule all:
 
         VASCX_REFINED_TARGETS,
         VASCX_UNREFINED_TARGETS,
+
+        VASCX_AGGREGATED_TARGETS,
 
     log:
         errors="logs/all.err",
