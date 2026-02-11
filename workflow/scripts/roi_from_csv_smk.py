@@ -63,7 +63,22 @@ with open(csv_file, "r") as f:
                         Image.fromarray(mask, mode="L").resize((W2, H2), Image.NEAREST),
                         dtype=np.uint8,
                     )
+                    # Update dimensions and center after resize
+                    scale_x = W2 / W
+                    scale_y = H2 / H
+                    H, W = H2, W2
+                    cx *= scale_x
+                    cy *= scale_y
+                    R *= min(scale_x, scale_y)
+
+        # Crop to bounding box of the circle (makes it square like VascX does)
+        x_min = max(0, int(cx - R))
+        x_max = min(W, int(cx + R))
+        y_min = max(0, int(cy - R))
+        y_max = min(H, int(cy + R))
+        
+        mask_cropped = mask[y_min:y_max, x_min:x_max]
 
         out_path = out_dir / f"{name}.png"
-        Image.fromarray(mask, mode="L").save(out_path)
-        print(f"[OK] {out_path}")
+        Image.fromarray(mask_cropped, mode="L").save(out_path)
+        print(f"[OK] {out_path} (cropped to {mask_cropped.shape[1]}x{mask_cropped.shape[0]})")

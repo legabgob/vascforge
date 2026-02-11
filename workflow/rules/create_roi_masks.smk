@@ -7,7 +7,7 @@ rule make_roi_masks:
     output:
         out_dir = directory("data/{dataset}/roi_masks")
     params:
-        img_dir = lambda wc: f"data/{wc.dataset}/images",
+        img_dir = lambda wc: f"data/{wc.dataset}/segs_converted",
         img_ext = ".png",
         skip_if_flag_false = True,
     script:
