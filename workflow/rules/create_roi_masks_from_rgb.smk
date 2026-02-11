@@ -3,7 +3,7 @@ from snakemake.io import directory
 
 rule make_roi_masks_from_rgb:
     input:
-        rgb_dir = lambda wc: config["datasets"][wc.dataset]["rgb"]
+        rgb_dir = lambda wc: glob(f"{config['legacy_root']}/{wc.dataset}/*/seg_legacy/rgb")[0]
     output:
         out_dir = directory("data/{dataset}/roi_masks")
     params:
