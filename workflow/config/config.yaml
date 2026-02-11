@@ -17,6 +17,7 @@ datasets:
   - "Fundus-AVSeg"
   - "FIVES"
   - "leuven-haifa"
+  - "UKBB_1000"
 
 resolutions: ["576", "1024"]
 k_range: [3, 9] 
@@ -24,6 +25,7 @@ refine_datasets:
   - "Fundus-AVSeg"
   - "FIVES"
   - "leuven-haifa"
+  - "UKBB_1000"
 
 metrics:
   out_dir: "results/metrics"
@@ -39,7 +41,7 @@ metrics:
       - val
 
 ground_truth:
-  enabled: true
+  enabled: false
   # Set enabled: true once you have configured the patterns below.
   # root: "/path/to/where/GTs/live"   # defaults to legacy_root if omitted
 
