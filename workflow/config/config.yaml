@@ -20,7 +20,7 @@ datasets:
   - "UKBB_1000_Fundus"
   - "UKBB_1000_Fundus_reco"
 
-resolutions: ["576", "1024"]
+resolutions: ["1024"]
 k_range: [3, 9] 
 refine_datasets:
   - "Fundus-AVSeg"

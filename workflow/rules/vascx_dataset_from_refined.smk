@@ -52,7 +52,7 @@ rule make_vascx_view_simple:
         # All required folders from seg_legacy
         original = original_dir_simple,
         av = "results/refined_labels/{dataset}/k{k}/downsampled/{res}px",
-        meta = "data/{dataset}/meta/meta_filtered_square.csv",
+        meta = "data/{dataset}/meta/meta_filtered.csv",
         # Additional folders that VascX expects
         ce = lambda wc: os.path.join(LEGACY_ROOT, wc.dataset, "seg_legacy", "ce"),
         rgb = lambda wc: os.path.join(LEGACY_ROOT, wc.dataset, "seg_legacy", "rgb"),
@@ -96,7 +96,7 @@ rule make_vascx_view_otherdir:
         # All required folders from seg_legacy
         original = original_dir_other,
         av = "results/refined_labels/{dataset}/k{k}/downsampled/{res}px",
-        meta = "data/{dataset}/meta/meta_filtered_square.csv",
+        meta = "data/{dataset}/meta/meta_filtered.csv",
         # Additional folders that VascX expects
         ce = lambda wc: os.path.join(LEGACY_ROOT, wc.dataset, wc.other_dir, "seg_legacy", "ce"),
         rgb = lambda wc: os.path.join(LEGACY_ROOT, wc.dataset, wc.other_dir, "seg_legacy", "rgb"),

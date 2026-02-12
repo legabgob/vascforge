@@ -16,9 +16,25 @@ def get_rgb_dir(wildcards):
     
     raise FileNotFoundError(f"Could not find RGB directory for {wildcards.dataset}")
 
+def get_segs_dir_for_mask(wildcards):
+    base = Path(config['legacy_root']) / wildcards.dataset
+    
+    # Try with middle directory
+    candidates = list(base.glob("*/seg_legacy/av"))
+    if candidates:
+        return str(candidates[0])
+    
+    # Try direct path
+    direct = base / "seg_legacy" / "av"
+    if direct.exists():
+        return str(direct)
+    
+    raise FileNotFoundError(f"Could not find AV directory for {wildcards.dataset}")
+
 rule make_roi_masks_from_rgb:
     input:
-        rgb_dir = get_rgb_dir
+        rgb_dir = get_rgb_dir,
+        segs_dir = get_segs_dir_for_mask  # NEW: pass segs directory
     output:
         out_dir = directory("data/{dataset}/roi_masks")
     params:

@@ -4,6 +4,7 @@ from pathlib import Path
 
 # Snakemake inputs
 rgb_dir = Path(str(snakemake.input.rgb_dir))
+segs_dir = Path(str(snakemake.input.segs_dir))  # NEW: reference to segmentations
 out_dir = Path(str(snakemake.output.out_dir))
 
 # Parameters
@@ -12,12 +13,23 @@ ext = getattr(snakemake.params, "ext", ".png")
 
 out_dir.mkdir(parents=True, exist_ok=True)
 
+# Get list of segmentation filenames to match against
+seg_stems = {p.stem for p in segs_dir.glob(f"*{ext}")}
+if not seg_stems:
+    raise SystemExit(f"No segmentation files found in {segs_dir}")
+
 rgb_files = sorted(rgb_dir.glob(f"*{ext}"))
 if not rgb_files:
     raise SystemExit(f"No {ext} files found in {rgb_dir}")
 
 count = 0
+skipped = 0
 for rgb_path in rgb_files:
+    # Only create mask if corresponding segmentation exists
+    if rgb_path.stem not in seg_stems:
+        skipped += 1
+        continue
+    
     # Load RGB image
     img = np.array(Image.open(rgb_path))
     
@@ -41,4 +53,4 @@ for rgb_path in rgb_files:
     Image.fromarray(fovea_mask.astype(np.uint8), mode="L").save(out_path)
     count += 1
 
-print(f"Created {count} ROI masks from {rgb_dir} to {out_dir}")
+print(f"Created {count} ROI masks from {rgb_dir} to {out_dir} (skipped {skipped} without matching segs)")
