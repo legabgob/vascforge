@@ -173,7 +173,7 @@ include: "./rules/vascx_dataset_from_refined.smk"
 include: "./rules/vascx_features_from_refined.smk"
 include: "./rules/vascx_features_from_unrefined.smk"
 include: "./rules/aggregate_vascx_features.smk"
-include: "./rules/connectivity_metrics_vascx.smk"
+include: "./rules/connectivity_vascx.smk"
 
 
 # Rule order
@@ -265,29 +265,24 @@ CONNECTIVITY_COMPARISON = bool(config.get("vascx", {}).get("connectivity_compari
 
 CONNECTIVITY_OUT = config.get("vascx", {}).get("connectivity_out", "results/connectivity_metrics")
 
-# Vessel types to analyze
-VESSEL_TYPES = ["arteries", "veins"]
-
 if CONNECTIVITY_REFINED:
     CONNECTIVITY_REFINED_TARGETS = []
     
     # Simple datasets - summary files (aggregated metrics)
     CONNECTIVITY_REFINED_TARGETS += expand(
-        f"{CONNECTIVITY_OUT}/refined/{{dataset}}/k{{k}}/downsampled/{{res}}px/{{vessel_type}}_summary.csv",
+        f"{CONNECTIVITY_OUT}/refined/{{dataset}}/k{{k}}/downsampled/{{res}}px/summary.csv",
         dataset=SIMPLE_DATASETS,
         k=K_VALUES,
         res=RESOLUTIONS,
-        vessel_type=VESSEL_TYPES,
     )
     
     # Other-dir datasets - summary files
     CONNECTIVITY_REFINED_TARGETS += [
-        f"{CONNECTIVITY_OUT}/refined/{d}/{od}/k{k}/downsampled/{res}px/{vt}_summary.csv"
+        f"{CONNECTIVITY_OUT}/refined/{d}/{od}/k{k}/downsampled/{res}px/summary.csv"
         for d in OTHERDIR_DATASETS
         for od in OTHERDIRS.get(d, [])
         for k in K_VALUES
         for res in RESOLUTIONS
-        for vt in VESSEL_TYPES
     ]
 else:
     CONNECTIVITY_REFINED_TARGETS = []
@@ -297,19 +292,17 @@ if CONNECTIVITY_UNREFINED:
     
     # Simple datasets - summary files
     CONNECTIVITY_UNREFINED_TARGETS += expand(
-        f"{CONNECTIVITY_OUT}/unrefined/{{dataset}}/downsampled/{{res}}px/{{vessel_type}}_summary.csv",
+        f"{CONNECTIVITY_OUT}/unrefined/{{dataset}}/downsampled/{{res}}px/summary.csv",
         dataset=SIMPLE_DATASETS,
         res=RESOLUTIONS,
-        vessel_type=VESSEL_TYPES,
     )
     
     # Other-dir datasets - summary files
     CONNECTIVITY_UNREFINED_TARGETS += [
-        f"{CONNECTIVITY_OUT}/unrefined/{d}/{od}/downsampled/{res}px/{vt}_summary.csv"
+        f"{CONNECTIVITY_OUT}/unrefined/{d}/{od}/downsampled/{res}px/summary.csv"
         for d in OTHERDIR_DATASETS
         for od in OTHERDIRS.get(d, [])
         for res in RESOLUTIONS
-        for vt in VESSEL_TYPES
     ]
 else:
     CONNECTIVITY_UNREFINED_TARGETS = []
@@ -319,26 +312,22 @@ if CONNECTIVITY_COMPARISON:
     
     # Simple datasets - comparison files
     CONNECTIVITY_COMPARISON_TARGETS += expand(
-        f"{CONNECTIVITY_OUT}/comparison/{{dataset}}/k{{k}}/downsampled/{{res}}px/{{vessel_type}}_refinement_comparison.csv",
+        f"{CONNECTIVITY_OUT}/comparison/{{dataset}}/k{{k}}/downsampled/{{res}}px/refinement_comparison.csv",
         dataset=SIMPLE_DATASETS,
         k=K_VALUES,
         res=RESOLUTIONS,
-        vessel_type=VESSEL_TYPES,
     )
     
     # Other-dir datasets - comparison files
     CONNECTIVITY_COMPARISON_TARGETS += [
-        f"{CONNECTIVITY_OUT}/comparison/{d}/{od}/k{k}/downsampled/{res}px/{vt}_refinement_comparison.csv"
+        f"{CONNECTIVITY_OUT}/comparison/{d}/{od}/k{k}/downsampled/{res}px/refinement_comparison.csv"
         for d in OTHERDIR_DATASETS
         for od in OTHERDIRS.get(d, [])
         for k in K_VALUES
         for res in RESOLUTIONS
-        for vt in VESSEL_TYPES
     ]
 else:
     CONNECTIVITY_COMPARISON_TARGETS = []
-
-
 rule all:
     input:
         # Ensure meta gets copied for all datasets

@@ -332,20 +332,19 @@ def process_single_image(
 def process_from_vascx_loader(
     dataset_path: Path,
     image_id: str,
-    vessel_type: str,
     output_prefix: Path,
     av_subfolder: str = 'av',
     fundus_subfolder: str = 'rgb'
 ) -> Dict:
     """
     Process using VascX RetinaLoader (for properly structured datasets).
+    Works with COMBINED vessel masks.
     
     Args:
         dataset_path: Path to dataset root
         image_id: Image identifier
-        vessel_type: 'arteries' or 'veins'
         output_prefix: Prefix for output files
-        av_subfolder: Subfolder containing artery/vein masks
+        av_subfolder: Subfolder containing vessel masks
         fundus_subfolder: Subfolder containing fundus images
     
     Returns:
@@ -370,24 +369,19 @@ def process_from_vascx_loader(
     if retina is None:
         raise ValueError(f"Image {image_id} not found in dataset")
     
-    # Get the appropriate vessel layer
-    if vessel_type == 'arteries':
-        layer = retina.arteries
-    elif vessel_type == 'veins':
-        layer = retina.veins
-    else:
-        raise ValueError(f"Unknown vessel type: {vessel_type}")
+    # Use the COMBINED vessels layer (arteries + veins together)
+    # VascX creates a combined layer automatically
+    layer = retina.vessels  # Use .vessels for combined, not .arteries or .veins
     
-    # Calculate metrics (same as above)
+    # Calculate metrics
     cc_metrics = calculate_connected_components_metrics(layer)
     od_metrics = calculate_optic_disc_connectivity(layer)
     component_df = calculate_component_size_distribution(layer)
     
-    # Combine and save (same format as above)
+    # Combine and save
     all_metrics = {
         'image_info': {
             'image_id': image_id,
-            'vessel_type': vessel_type,
             'dataset_path': str(dataset_path),
         },
         'graph_info': {
@@ -410,12 +404,12 @@ def process_from_vascx_loader(
             'proportion_length': od_metrics['proportion_length'],
         },
         'summary_stats': {
-            'mean_component_size_nodes': float(np.mean(cc_metrics['component_sizes_nodes'])),
-            'median_component_size_nodes': float(np.median(cc_metrics['component_sizes_nodes'])),
-            'std_component_size_nodes': float(np.std(cc_metrics['component_sizes_nodes'])),
-            'mean_component_size_length': float(np.mean(cc_metrics['component_sizes_length'])),
-            'median_component_size_length': float(np.median(cc_metrics['component_sizes_length'])),
-            'std_component_size_length': float(np.std(cc_metrics['component_sizes_length'])),
+            'mean_component_size_nodes': float(np.mean(cc_metrics['component_sizes_nodes'])) if cc_metrics['component_sizes_nodes'] else 0,
+            'median_component_size_nodes': float(np.median(cc_metrics['component_sizes_nodes'])) if cc_metrics['component_sizes_nodes'] else 0,
+            'std_component_size_nodes': float(np.std(cc_metrics['component_sizes_nodes'])) if cc_metrics['component_sizes_nodes'] else 0,
+            'mean_component_size_length': float(np.mean(cc_metrics['component_sizes_length'])) if cc_metrics['component_sizes_length'] else 0,
+            'median_component_size_length': float(np.median(cc_metrics['component_sizes_length'])) if cc_metrics['component_sizes_length'] else 0,
+            'std_component_size_length': float(np.std(cc_metrics['component_sizes_length'])) if cc_metrics['component_sizes_length'] else 0,
         }
     }
     
@@ -432,12 +426,14 @@ def process_from_vascx_loader(
     print(f"\n{'='*60}")
     print("CONNECTIVITY METRICS SUMMARY")
     print("="*60)
-    print(f"Image: {image_id} ({vessel_type})")
+    print(f"Image: {image_id}")
     print(f"Total nodes: {all_metrics['graph_info']['total_nodes']}")
     print(f"Total edges: {all_metrics['graph_info']['total_edges']}")
     print(f"\nConnected Components: {cc_metrics['num_components']}")
-    print(f"  Largest (nodes): {cc_metrics['largest_component_nodes']} ({cc_metrics['largest_component_nodes']/cc_metrics['total_nodes']*100:.1f}%)")
-    print(f"  Largest (length): {cc_metrics['largest_component_length']:.1f} ({cc_metrics['largest_component_length']/cc_metrics['total_length']*100:.1f}%)")
+    if cc_metrics['total_nodes'] > 0:
+        print(f"  Largest (nodes): {cc_metrics['largest_component_nodes']} ({cc_metrics['largest_component_nodes']/cc_metrics['total_nodes']*100:.1f}%)")
+    if cc_metrics['total_length'] > 0:
+        print(f"  Largest (length): {cc_metrics['largest_component_length']:.1f} ({cc_metrics['largest_component_length']/cc_metrics['total_length']*100:.1f}%)")
     print(f"\nOptic Disc Connectivity:")
     print(f"  Components touching OD: {od_metrics['num_components_touching_od']}")
     print(f"  Nodes connected: {od_metrics['connected_nodes']} ({od_metrics['proportion_nodes']*100:.1f}%)")
@@ -454,30 +450,20 @@ def main():
     
     subparsers = parser.add_subparsers(dest='mode', help='Processing mode')
     
-    # Single mask mode
-    single_parser = subparsers.add_parser('single', help='Process single binary mask')
-    single_parser.add_argument('mask_path', type=Path, help='Path to binary .png mask')
-    single_parser.add_argument('vessel_type', choices=['arteries', 'veins'], help='Vessel type')
-    single_parser.add_argument('output_prefix', type=Path, help='Prefix for output files')
-    
     # Dataset mode (using VascX loader)
     dataset_parser = subparsers.add_parser('dataset', help='Process from VascX-structured dataset')
     dataset_parser.add_argument('dataset_path', type=Path, help='Path to dataset root')
     dataset_parser.add_argument('image_id', type=str, help='Image identifier')
-    dataset_parser.add_argument('vessel_type', choices=['arteries', 'veins'], help='Vessel type')
     dataset_parser.add_argument('output_prefix', type=Path, help='Prefix for output files')
-    dataset_parser.add_argument('--av-subfolder', default='av', help='AV masks subfolder')
+    dataset_parser.add_argument('--av-subfolder', default='av', help='Vessel masks subfolder')
     dataset_parser.add_argument('--fundus-subfolder', default='rgb', help='Fundus images subfolder')
     
     args = parser.parse_args()
     
-    if args.mode == 'single':
-        process_single_image(args.mask_path, args.vessel_type, args.output_prefix)
-    elif args.mode == 'dataset':
+    if args.mode == 'dataset':
         process_from_vascx_loader(
             args.dataset_path,
             args.image_id,
-            args.vessel_type,
             args.output_prefix,
             args.av_subfolder,
             args.fundus_subfolder
