@@ -179,7 +179,7 @@ def process_dataset_batch(
             print(f"[{i+1}/{len(loader)}] Processing {retina.id}...", end=' ')
             
             # Get combined vessels layer
-            layer = retina.vessels
+            layer = retina.arteries
             
             # Calculate metrics
             metrics = calculate_image_metrics(layer)

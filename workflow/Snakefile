@@ -185,8 +185,6 @@ ruleorder: make_vascx_view_unrefined_otherdir > make_vascx_view_unrefined_simple
 # Connectivity metrics rule order
 ruleorder: connectivity_refined_otherdir > connectivity_refined_simple
 ruleorder: connectivity_unrefined_otherdir > connectivity_unrefined_simple
-ruleorder: aggregate_connectivity_refined_otherdir > aggregate_connectivity_refined_simple
-ruleorder: aggregate_connectivity_unrefined_otherdir > aggregate_connectivity_unrefined_simple
 ruleorder: compare_connectivity_otherdir > compare_connectivity_simple
 ruleorder: plot_connectivity_refined_otherdir > plot_connectivity_refined_simple
 
@@ -273,7 +271,7 @@ if CONNECTIVITY_REFINED:
         f"{CONNECTIVITY_OUT}/refined/{{dataset}}/k{{k}}/downsampled/{{res}}px/summary.csv",
         dataset=SIMPLE_DATASETS,
         k=K_VALUES,
-        res=RESOLUTIONS,
+        res=["1024"],
     )
     
     # Other-dir datasets - summary files
@@ -282,7 +280,7 @@ if CONNECTIVITY_REFINED:
         for d in OTHERDIR_DATASETS
         for od in OTHERDIRS.get(d, [])
         for k in K_VALUES
-        for res in RESOLUTIONS
+        
     ]
 else:
     CONNECTIVITY_REFINED_TARGETS = []
@@ -294,7 +292,7 @@ if CONNECTIVITY_UNREFINED:
     CONNECTIVITY_UNREFINED_TARGETS += expand(
         f"{CONNECTIVITY_OUT}/unrefined/{{dataset}}/downsampled/{{res}}px/summary.csv",
         dataset=SIMPLE_DATASETS,
-        res=RESOLUTIONS,
+        res=["1024"],
     )
     
     # Other-dir datasets - summary files
@@ -302,7 +300,7 @@ if CONNECTIVITY_UNREFINED:
         f"{CONNECTIVITY_OUT}/unrefined/{d}/{od}/downsampled/{res}px/summary.csv"
         for d in OTHERDIR_DATASETS
         for od in OTHERDIRS.get(d, [])
-        for res in RESOLUTIONS
+        
     ]
 else:
     CONNECTIVITY_UNREFINED_TARGETS = []
@@ -315,7 +313,7 @@ if CONNECTIVITY_COMPARISON:
         f"{CONNECTIVITY_OUT}/comparison/{{dataset}}/k{{k}}/downsampled/{{res}}px/refinement_comparison.csv",
         dataset=SIMPLE_DATASETS,
         k=K_VALUES,
-        res=RESOLUTIONS,
+        res=["1024"],
     )
     
     # Other-dir datasets - comparison files
@@ -324,7 +322,7 @@ if CONNECTIVITY_COMPARISON:
         for d in OTHERDIR_DATASETS
         for od in OTHERDIRS.get(d, [])
         for k in K_VALUES
-        for res in RESOLUTIONS
+        
     ]
 else:
     CONNECTIVITY_COMPARISON_TARGETS = []
