@@ -26,7 +26,7 @@ rule make_vascx_view_unrefined_simple:
         dataset="[^/]+",
     input:
         seg_legacy = seg_legacy_simple,
-        meta = "data/{dataset}/meta/meta_filtered_square.csv",
+        meta = "data/{dataset}/meta/meta_filtered.csv",
     output:
         view = directory(f"{VASCX_UNREFINED_ROOT}" + "/{dataset}/downsampled/{res}px"),
     run:
@@ -103,7 +103,7 @@ rule make_vascx_view_unrefined_otherdir:
         other_dir="[^/]+",
     input:
         seg_legacy = seg_legacy_other,
-        meta = "data/{dataset}/meta/meta_filtered_square.csv",
+        meta = "data/{dataset}/meta/meta_filtered.csv",
     output:
         view = directory(f"{VASCX_UNREFINED_ROOT}" + "/{dataset}/{other_dir}/downsampled/{res}px"),
     run:

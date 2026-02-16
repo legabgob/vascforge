@@ -34,7 +34,7 @@ metrics:
 
   # Only these datasets will be evaluated by default
   av_gt_datasets:
-    - "Fundus-AVSeg"
+    #- "Fundus-AVSeg"
     - "leuven-haifa"
 
   exclude_splits:
@@ -88,7 +88,11 @@ vascx:
   dataset_unrefined_root: "results/vascx_datasets_unrefined"
   features_refined_out: "results/vascx_features_refined"
   features_unrefined_out: "results/vascx_features_unrefined"
+  connectivity_out: "results/connectivity_metrics"
   n_jobs: 64
   feature_set: "bergmann"
   av_subfolder: "av"
   aggregation_enabled: true
+  connectivity_refined_enabled: true
+  connectivity_unrefined_enabled: true
+  connectivity_comparison_enabled: true

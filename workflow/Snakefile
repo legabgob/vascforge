@@ -120,7 +120,7 @@ for d in DATASETS:
     if legacy_path.exists():
         subdirs = [x.name for x in legacy_path.iterdir() if x.is_dir()]
         # If it has common split names, treat as other_dir dataset
-        if any(s in subdirs for s in ["train", "test", "val", "training", "testing", "validation"]):
+        if any(s in subdirs for s in ["train", "test", "val", "training", "testing", "validation", "fundus", "fundus_reco"]):
             VASCX_DATASETS_WITH_OTHERDIR.add(d)
 
 SIMPLE_DATASETS = sorted([d for d in DATASETS if d not in VASCX_DATASETS_WITH_OTHERDIR])
@@ -173,6 +173,7 @@ include: "./rules/vascx_dataset_from_refined.smk"
 include: "./rules/vascx_features_from_refined.smk"
 include: "./rules/vascx_features_from_unrefined.smk"
 include: "./rules/aggregate_vascx_features.smk"
+include: "./rules/connectivity_metrics_vascx.smk"
 
 
 # Rule order
@@ -181,6 +182,13 @@ ruleorder: vascx_features_unrefined_otherdir > vascx_features_unrefined_simple
 ruleorder: aggregate_vascx_otherdir > aggregate_vascx_simple
 ruleorder: make_vascx_view_otherdir > make_vascx_view_simple
 ruleorder: make_vascx_view_unrefined_otherdir > make_vascx_view_unrefined_simple
+# Connectivity metrics rule order
+ruleorder: connectivity_refined_otherdir > connectivity_refined_simple
+ruleorder: connectivity_unrefined_otherdir > connectivity_unrefined_simple
+ruleorder: aggregate_connectivity_refined_otherdir > aggregate_connectivity_refined_simple
+ruleorder: aggregate_connectivity_unrefined_otherdir > aggregate_connectivity_unrefined_simple
+ruleorder: compare_connectivity_otherdir > compare_connectivity_simple
+ruleorder: plot_connectivity_refined_otherdir > plot_connectivity_refined_simple
 
 VASCX_REFINED = bool(config.get("vascx", {}).get("refined_features_enabled", True))
 
@@ -251,6 +259,85 @@ if VASCX_AGGREGATED:
 else:
     VASCX_AGGREGATED_TARGETS = []
 
+CONNECTIVITY_REFINED = bool(config.get("vascx", {}).get("connectivity_refined_enabled", False))
+CONNECTIVITY_UNREFINED = bool(config.get("vascx", {}).get("connectivity_unrefined_enabled", False))
+CONNECTIVITY_COMPARISON = bool(config.get("vascx", {}).get("connectivity_comparison_enabled", False))
+
+CONNECTIVITY_OUT = config.get("vascx", {}).get("connectivity_out", "results/connectivity_metrics")
+
+# Vessel types to analyze
+VESSEL_TYPES = ["arteries", "veins"]
+
+if CONNECTIVITY_REFINED:
+    CONNECTIVITY_REFINED_TARGETS = []
+    
+    # Simple datasets - summary files (aggregated metrics)
+    CONNECTIVITY_REFINED_TARGETS += expand(
+        f"{CONNECTIVITY_OUT}/refined/{{dataset}}/k{{k}}/downsampled/{{res}}px/{{vessel_type}}_summary.csv",
+        dataset=SIMPLE_DATASETS,
+        k=K_VALUES,
+        res=RESOLUTIONS,
+        vessel_type=VESSEL_TYPES,
+    )
+    
+    # Other-dir datasets - summary files
+    CONNECTIVITY_REFINED_TARGETS += [
+        f"{CONNECTIVITY_OUT}/refined/{d}/{od}/k{k}/downsampled/{res}px/{vt}_summary.csv"
+        for d in OTHERDIR_DATASETS
+        for od in OTHERDIRS.get(d, [])
+        for k in K_VALUES
+        for res in RESOLUTIONS
+        for vt in VESSEL_TYPES
+    ]
+else:
+    CONNECTIVITY_REFINED_TARGETS = []
+
+if CONNECTIVITY_UNREFINED:
+    CONNECTIVITY_UNREFINED_TARGETS = []
+    
+    # Simple datasets - summary files
+    CONNECTIVITY_UNREFINED_TARGETS += expand(
+        f"{CONNECTIVITY_OUT}/unrefined/{{dataset}}/downsampled/{{res}}px/{{vessel_type}}_summary.csv",
+        dataset=SIMPLE_DATASETS,
+        res=RESOLUTIONS,
+        vessel_type=VESSEL_TYPES,
+    )
+    
+    # Other-dir datasets - summary files
+    CONNECTIVITY_UNREFINED_TARGETS += [
+        f"{CONNECTIVITY_OUT}/unrefined/{d}/{od}/downsampled/{res}px/{vt}_summary.csv"
+        for d in OTHERDIR_DATASETS
+        for od in OTHERDIRS.get(d, [])
+        for res in RESOLUTIONS
+        for vt in VESSEL_TYPES
+    ]
+else:
+    CONNECTIVITY_UNREFINED_TARGETS = []
+
+if CONNECTIVITY_COMPARISON:
+    CONNECTIVITY_COMPARISON_TARGETS = []
+    
+    # Simple datasets - comparison files
+    CONNECTIVITY_COMPARISON_TARGETS += expand(
+        f"{CONNECTIVITY_OUT}/comparison/{{dataset}}/k{{k}}/downsampled/{{res}}px/{{vessel_type}}_refinement_comparison.csv",
+        dataset=SIMPLE_DATASETS,
+        k=K_VALUES,
+        res=RESOLUTIONS,
+        vessel_type=VESSEL_TYPES,
+    )
+    
+    # Other-dir datasets - comparison files
+    CONNECTIVITY_COMPARISON_TARGETS += [
+        f"{CONNECTIVITY_OUT}/comparison/{d}/{od}/k{k}/downsampled/{res}px/{vt}_refinement_comparison.csv"
+        for d in OTHERDIR_DATASETS
+        for od in OTHERDIRS.get(d, [])
+        for k in K_VALUES
+        for res in RESOLUTIONS
+        for vt in VESSEL_TYPES
+    ]
+else:
+    CONNECTIVITY_COMPARISON_TARGETS = []
+
 
 rule all:
     input:
@@ -293,6 +380,10 @@ rule all:
         VASCX_UNREFINED_TARGETS,
 
         VASCX_AGGREGATED_TARGETS,
+
+        CONNECTIVITY_REFINED_TARGETS,
+        CONNECTIVITY_UNREFINED_TARGETS,
+        CONNECTIVITY_COMPARISON_TARGETS,
 
     log:
         errors="logs/all.err",
