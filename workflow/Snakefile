@@ -266,7 +266,7 @@ CONNECTIVITY_OUT = config.get("vascx", {}).get("connectivity_out", "results/conn
 if CONNECTIVITY_REFINED:
     CONNECTIVITY_REFINED_TARGETS = []
     
-    # Simple datasets - summary files (aggregated metrics)
+    # Simple datasets - summary files (aggregated metrics) - ONLY 1024px
     CONNECTIVITY_REFINED_TARGETS += expand(
         f"{CONNECTIVITY_OUT}/refined/{{dataset}}/k{{k}}/downsampled/{{res}}px/summary.csv",
         dataset=SIMPLE_DATASETS,
@@ -274,13 +274,12 @@ if CONNECTIVITY_REFINED:
         res=["1024"],
     )
     
-    # Other-dir datasets - summary files
+    # Other-dir datasets - summary files - ONLY 1024px
     CONNECTIVITY_REFINED_TARGETS += [
-        f"{CONNECTIVITY_OUT}/refined/{d}/{od}/k{k}/downsampled/{res}px/summary.csv"
+        f"{CONNECTIVITY_OUT}/refined/{d}/{od}/k{k}/downsampled/1024px/summary.csv"  # <-- HARDCODE 1024px
         for d in OTHERDIR_DATASETS
         for od in OTHERDIRS.get(d, [])
         for k in K_VALUES
-        
     ]
 else:
     CONNECTIVITY_REFINED_TARGETS = []
@@ -288,19 +287,18 @@ else:
 if CONNECTIVITY_UNREFINED:
     CONNECTIVITY_UNREFINED_TARGETS = []
     
-    # Simple datasets - summary files
+    # Simple datasets - summary files - ONLY 1024px
     CONNECTIVITY_UNREFINED_TARGETS += expand(
         f"{CONNECTIVITY_OUT}/unrefined/{{dataset}}/downsampled/{{res}}px/summary.csv",
         dataset=SIMPLE_DATASETS,
         res=["1024"],
     )
     
-    # Other-dir datasets - summary files
+    # Other-dir datasets - summary files - ONLY 1024px
     CONNECTIVITY_UNREFINED_TARGETS += [
-        f"{CONNECTIVITY_OUT}/unrefined/{d}/{od}/downsampled/{res}px/summary.csv"
+        f"{CONNECTIVITY_OUT}/unrefined/{d}/{od}/downsampled/1024px/summary.csv"  # <-- HARDCODE 1024px
         for d in OTHERDIR_DATASETS
         for od in OTHERDIRS.get(d, [])
-        
     ]
 else:
     CONNECTIVITY_UNREFINED_TARGETS = []
@@ -308,7 +306,7 @@ else:
 if CONNECTIVITY_COMPARISON:
     CONNECTIVITY_COMPARISON_TARGETS = []
     
-    # Simple datasets - comparison files
+    # Simple datasets - comparison files - ONLY 1024px
     CONNECTIVITY_COMPARISON_TARGETS += expand(
         f"{CONNECTIVITY_OUT}/comparison/{{dataset}}/k{{k}}/downsampled/{{res}}px/refinement_comparison.csv",
         dataset=SIMPLE_DATASETS,
@@ -316,13 +314,12 @@ if CONNECTIVITY_COMPARISON:
         res=["1024"],
     )
     
-    # Other-dir datasets - comparison files
+    # Other-dir datasets - comparison files - ONLY 1024px
     CONNECTIVITY_COMPARISON_TARGETS += [
-        f"{CONNECTIVITY_OUT}/comparison/{d}/{od}/k{k}/downsampled/{res}px/refinement_comparison.csv"
+        f"{CONNECTIVITY_OUT}/comparison/{d}/{od}/k{k}/downsampled/1024px/refinement_comparison.csv"  # <-- HARDCODE 1024px
         for d in OTHERDIR_DATASETS
         for od in OTHERDIRS.get(d, [])
         for k in K_VALUES
-        
     ]
 else:
     CONNECTIVITY_COMPARISON_TARGETS = []
