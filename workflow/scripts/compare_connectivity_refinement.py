@@ -1,180 +1,123 @@
 #!/usr/bin/env python3
 """
-Compare connectivity metrics before and after Greco refinement.
-
-Performs statistical tests and generates comparison summaries.
+Compare unrefined vs refined connectivity metrics.
+Fixed to handle boolean JSON serialization.
 """
 
 import pandas as pd
 import numpy as np
 import json
-from pathlib import Path
-from scipy import stats
 import matplotlib.pyplot as plt
 import seaborn as sns
+from scipy import stats
+from pathlib import Path
 
 
-def load_and_merge_data(unrefined_path: Path, refined_path: Path) -> pd.DataFrame:
-    """
-    Load and merge unrefined and refined data.
-    
-    Returns DataFrame with matched pairs for statistical testing.
-    """
-    unrefined = pd.read_csv(unrefined_path)
-    refined = pd.read_csv(refined_path)
-    
-    # Merge on image_id
-    merged = unrefined.merge(
-        refined,
-        on='image_id',
-        suffixes=('_unrefined', '_refined')
-    )
-    
-    return merged
+def convert_for_json(obj):
+    """Convert numpy/pandas types to JSON-serializable types."""
+    if isinstance(obj, (np.integer, np.int64, np.int32)):
+        return int(obj)
+    elif isinstance(obj, (np.floating, np.float64, np.float32)):
+        return float(obj)
+    elif isinstance(obj, np.ndarray):
+        return obj.tolist()
+    elif isinstance(obj, (np.bool_, bool)):  # ← Fix for boolean serialization
+        return bool(obj)
+    elif isinstance(obj, dict):
+        return {k: convert_for_json(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_for_json(item) for item in obj]
+    else:
+        return obj
 
 
-def calculate_changes(df: pd.DataFrame, metrics: list) -> pd.DataFrame:
-    """
-    Calculate changes (delta and percent change) for each metric.
-    """
-    for metric in metrics:
-        unrefined_col = f"{metric}_unrefined"
-        refined_col = f"{metric}_refined"
-        
-        if unrefined_col in df.columns and refined_col in df.columns:
-            # Absolute change
-            df[f"{metric}_delta"] = df[refined_col] - df[unrefined_col]
-            
-            # Percent change
-            df[f"{metric}_pct_change"] = (
-                (df[refined_col] - df[unrefined_col]) / 
-                df[unrefined_col].replace(0, np.nan) * 100
-            )
-    
-    return df
+def calculate_effect_size(before, after):
+    """Calculate Cohen's d effect size."""
+    pooled_std = np.sqrt((before.std()**2 + after.std()**2) / 2)
+    if pooled_std == 0:
+        return 0
+    return (after.mean() - before.mean()) / pooled_std
 
 
-def perform_statistical_tests(df: pd.DataFrame, metrics: list) -> dict:
-    """
-    Perform paired statistical tests for each metric.
+def perform_statistical_tests(before, after, metric_name):
+    """Perform statistical tests comparing before and after."""
+    results = {
+        'metric': metric_name,
+        'n_samples': len(before),
+        'before_mean': float(before.mean()),
+        'before_std': float(before.std()),
+        'after_mean': float(after.mean()),
+        'after_std': float(after.std()),
+        'mean_change': float(after.mean() - before.mean()),
+        'mean_change_pct': float((after.mean() - before.mean()) / before.mean() * 100) if before.mean() != 0 else 0,
+    }
     
-    Tests:
-    - Paired t-test (parametric)
-    - Wilcoxon signed-rank test (non-parametric)
-    - Effect size (Cohen's d)
-    """
-    results = {}
+    # Paired t-test
+    t_stat, t_pvalue = stats.ttest_rel(before, after)
+    results['paired_ttest'] = {
+        't_statistic': float(t_stat),
+        'p_value': float(t_pvalue),
+        'significant': bool(t_pvalue < 0.05),  # ← Convert to bool explicitly
+    }
     
-    for metric in metrics:
-        unrefined_col = f"{metric}_unrefined"
-        refined_col = f"{metric}_refined"
-        
-        if unrefined_col not in df.columns or refined_col not in df.columns:
-            continue
-        
-        unrefined = df[unrefined_col].dropna()
-        refined = df[refined_col].dropna()
-        
-        # Ensure same length for paired tests
-        common_idx = df[[unrefined_col, refined_col]].dropna().index
-        unrefined = df.loc[common_idx, unrefined_col]
-        refined = df.loc[common_idx, refined_col]
-        
-        if len(unrefined) < 2:
-            continue
-        
-        # Paired t-test
-        t_stat, t_pval = stats.ttest_rel(unrefined, refined)
-        
-        # Wilcoxon signed-rank test
-        w_stat, w_pval = stats.wilcoxon(unrefined, refined)
-        
-        # Effect size (Cohen's d for paired samples)
-        diff = refined - unrefined
-        cohens_d = diff.mean() / diff.std()
-        
-        # Summary statistics
-        results[metric] = {
-            'n_pairs': len(unrefined),
-            'unrefined_mean': float(unrefined.mean()),
-            'unrefined_std': float(unrefined.std()),
-            'refined_mean': float(refined.mean()),
-            'refined_std': float(refined.std()),
-            'mean_delta': float(diff.mean()),
-            'std_delta': float(diff.std()),
-            'median_delta': float(diff.median()),
-            't_statistic': float(t_stat),
-            't_pvalue': float(t_pval),
-            'wilcoxon_statistic': float(w_stat),
-            'wilcoxon_pvalue': float(w_pval),
-            'cohens_d': float(cohens_d),
-            'significant_t': t_pval < 0.05,
-            'significant_w': w_pval < 0.05,
+    # Wilcoxon signed-rank test (non-parametric alternative)
+    try:
+        w_stat, w_pvalue = stats.wilcoxon(before, after)
+        results['wilcoxon'] = {
+            'statistic': float(w_stat),
+            'p_value': float(w_pvalue),
+            'significant': bool(w_pvalue < 0.05),  # ← Convert to bool explicitly
         }
-        
-        # Interpretation of effect size
-        abs_d = abs(cohens_d)
-        if abs_d < 0.2:
-            effect_size_interp = 'negligible'
-        elif abs_d < 0.5:
-            effect_size_interp = 'small'
-        elif abs_d < 0.8:
-            effect_size_interp = 'medium'
-        else:
-            effect_size_interp = 'large'
-        
-        results[metric]['effect_size_interpretation'] = effect_size_interp
+    except Exception as e:
+        results['wilcoxon'] = {
+            'error': str(e)
+        }
+    
+    # Effect size (Cohen's d)
+    effect_size = calculate_effect_size(before, after)
+    results['effect_size'] = {
+        'cohens_d': float(effect_size),
+        'interpretation': (
+            'negligible' if abs(effect_size) < 0.2 else
+            'small' if abs(effect_size) < 0.5 else
+            'medium' if abs(effect_size) < 0.8 else
+            'large'
+        )
+    }
     
     return results
 
 
-def create_comparison_plot(df: pd.DataFrame, metrics: list, output_path: Path):
-    """
-    Create visualization comparing unrefined vs refined metrics.
-    """
+def create_comparison_plot(df, metrics, output_path):
+    """Create before/after comparison plots."""
     n_metrics = len(metrics)
-    fig, axes = plt.subplots(n_metrics, 2, figsize=(12, 4*n_metrics))
+    fig, axes = plt.subplots(1, n_metrics, figsize=(6*n_metrics, 5))
     
     if n_metrics == 1:
-        axes = axes.reshape(1, -1)
+        axes = [axes]
     
-    for i, metric in enumerate(metrics):
-        unrefined_col = f"{metric}_unrefined"
-        refined_col = f"{metric}_refined"
-        delta_col = f"{metric}_delta"
+    for ax, metric in zip(axes, metrics):
+        before = df[f'{metric}_unrefined']
+        after = df[f'{metric}_refined']
         
-        if unrefined_col not in df.columns or refined_col not in df.columns:
-            continue
+        # Paired plot
+        for i in range(len(df)):
+            ax.plot([0, 1], [before.iloc[i], after.iloc[i]], 
+                   'o-', alpha=0.2, color='gray')
         
-        # Left plot: Before vs After scatter
-        ax1 = axes[i, 0]
-        ax1.scatter(df[unrefined_col], df[refined_col], alpha=0.5)
+        # Mean with error bars
+        ax.errorbar([0, 1], 
+                   [before.mean(), after.mean()],
+                   yerr=[before.std(), after.std()],
+                   fmt='o-', linewidth=3, markersize=10,
+                   color='red', label='Mean ± SD')
         
-        # Add y=x line
-        min_val = min(df[unrefined_col].min(), df[refined_col].min())
-        max_val = max(df[unrefined_col].max(), df[refined_col].max())
-        ax1.plot([min_val, max_val], [min_val, max_val], 'r--', alpha=0.5, label='y=x')
-        
-        ax1.set_xlabel(f'{metric} (Unrefined)', fontsize=10)
-        ax1.set_ylabel(f'{metric} (Refined)', fontsize=10)
-        ax1.set_title(f'{metric}: Before vs After Refinement', fontsize=11)
-        ax1.legend()
-        ax1.grid(True, alpha=0.3)
-        
-        # Right plot: Distribution of changes
-        ax2 = axes[i, 1]
-        
-        if delta_col in df.columns:
-            df[delta_col].hist(bins=30, ax=ax2, edgecolor='black')
-            ax2.axvline(0, color='r', linestyle='--', linewidth=2, label='No change')
-            ax2.axvline(df[delta_col].mean(), color='g', linestyle='-', 
-                       linewidth=2, label=f'Mean: {df[delta_col].mean():.3f}')
-            
-            ax2.set_xlabel(f'Change in {metric}', fontsize=10)
-            ax2.set_ylabel('Frequency', fontsize=10)
-            ax2.set_title(f'Distribution of Changes in {metric}', fontsize=11)
-            ax2.legend()
-            ax2.grid(True, alpha=0.3, axis='y')
+        ax.set_xticks([0, 1])
+        ax.set_xticklabels(['Unrefined', 'Refined'])
+        ax.set_ylabel(metric.replace('_', ' ').title())
+        ax.set_title(f'{metric.replace("_", " ").title()}\nChange: {after.mean() - before.mean():.2f}')
+        ax.grid(True, alpha=0.3)
+        ax.legend()
     
     plt.tight_layout()
     plt.savefig(output_path, dpi=300, bbox_inches='tight')
@@ -182,64 +125,94 @@ def create_comparison_plot(df: pd.DataFrame, metrics: list, output_path: Path):
 
 
 def main(snakemake):
-    """Main function for Snakemake."""
-    
-    # Load data
+    """Main function called by Snakemake."""
+    # Read inputs
     print("Loading data...")
-    df = load_and_merge_data(
-        Path(snakemake.input.unrefined),
-        Path(snakemake.input.refined)
+    df_unrefined = pd.read_csv(snakemake.input.unrefined)
+    df_refined = pd.read_csv(snakemake.input.refined)
+    
+    # Match images by ID
+    merged = pd.merge(
+        df_unrefined,
+        df_refined,
+        on='image_id',
+        suffixes=('_unrefined', '_refined')
     )
     
-    print(f"Loaded {len(df)} matched image pairs")
-    
-    # Get metrics to compare
-    metrics = snakemake.params.get('metrics', [
-        'num_components',
-        'proportion_nodes_connected',
-        'proportion_length_connected'
-    ])
+    print(f"Loaded {len(merged)} matched image pairs")
     
     # Calculate changes
     print("Calculating changes...")
-    df = calculate_changes(df, metrics)
+    metrics_to_compare = snakemake.params.metrics
     
-    # Save comparison dataframe
-    df.to_csv(snakemake.output.comparison, index=False)
+    comparison_data = []
+    for _, row in merged.iterrows():
+        entry = {'image_id': row['image_id']}
+        for metric in metrics_to_compare:
+            unrefined_val = row[f'{metric}_unrefined']
+            refined_val = row[f'{metric}_refined']
+            entry[f'{metric}_unrefined'] = unrefined_val
+            entry[f'{metric}_refined'] = refined_val
+            entry[f'{metric}_change'] = refined_val - unrefined_val
+            if unrefined_val != 0:
+                entry[f'{metric}_change_pct'] = (refined_val - unrefined_val) / unrefined_val * 100
+            else:
+                entry[f'{metric}_change_pct'] = 0
+        comparison_data.append(entry)
+    
+    comparison_df = pd.DataFrame(comparison_data)
+    
+    # Save comparison CSV
+    comparison_df.to_csv(snakemake.output.comparison, index=False)
     print(f"Saved comparison to {snakemake.output.comparison}")
     
     # Perform statistical tests
     print("Performing statistical tests...")
-    stats_results = perform_statistical_tests(df, metrics)
+    stats_results = {}
     
-    # Save statistics
+    for metric in metrics_to_compare:
+        before = merged[f'{metric}_unrefined']
+        after = merged[f'{metric}_refined']
+        
+        test_results = perform_statistical_tests(before, after, metric)
+        stats_results[metric] = test_results
+    
+    # Convert all values for JSON serialization
+    stats_results = convert_for_json(stats_results)
+    
+    # Save statistics JSON
     with open(snakemake.output.stats, 'w') as f:
         json.dump(stats_results, f, indent=2)
     print(f"Saved statistics to {snakemake.output.stats}")
     
-    # Create plots
+    # Create comparison plot
     print("Creating plots...")
-    create_comparison_plot(df, metrics, Path(snakemake.output.plot))
+    create_comparison_plot(comparison_df, metrics_to_compare, snakemake.output.plot)
     print(f"Saved plot to {snakemake.output.plot}")
     
     # Print summary
     print("\n" + "="*70)
-    print("REFINEMENT COMPARISON SUMMARY")
+    print("COMPARISON SUMMARY")
     print("="*70)
-    
-    for metric, result in stats_results.items():
+    for metric in metrics_to_compare:
+        result = stats_results[metric]
         print(f"\n{metric}:")
-        print(f"  Unrefined: {result['unrefined_mean']:.3f} ± {result['unrefined_std']:.3f}")
-        print(f"  Refined:   {result['refined_mean']:.3f} ± {result['refined_std']:.3f}")
-        print(f"  Change:    {result['mean_delta']:.3f} ± {result['std_delta']:.3f}")
-        print(f"  Paired t-test: t={result['t_statistic']:.3f}, p={result['t_pvalue']:.4f} {'*' if result['significant_t'] else ''}")
-        print(f"  Wilcoxon test: W={result['wilcoxon_statistic']:.1f}, p={result['wilcoxon_pvalue']:.4f} {'*' if result['significant_w'] else ''}")
-        print(f"  Effect size (Cohen's d): {result['cohens_d']:.3f} ({result['effect_size_interpretation']})")
-    
-    print("="*70)
-    print("* p < 0.05 (statistically significant)")
+        print(f"  Before: {result['before_mean']:.2f} ± {result['before_std']:.2f}")
+        print(f"  After:  {result['after_mean']:.2f} ± {result['after_std']:.2f}")
+        print(f"  Change: {result['mean_change']:.2f} ({result['mean_change_pct']:.1f}%)")
+        print(f"  Paired t-test: p={result['paired_ttest']['p_value']:.4f} {'*' if result['paired_ttest']['significant'] else 'ns'}")
+        if 'wilcoxon' in result and 'p_value' in result['wilcoxon']:
+            print(f"  Wilcoxon test: p={result['wilcoxon']['p_value']:.4f} {'*' if result['wilcoxon']['significant'] else 'ns'}")
+        print(f"  Effect size (Cohen's d): {result['effect_size']['cohens_d']:.3f} ({result['effect_size']['interpretation']})")
     print("="*70)
 
 
 if __name__ == '__main__':
-    main(snakemake)
+    # For standalone testing
+    import sys
+    if len(sys.argv) > 1:
+        class FakeSnakemake:
+            pass
+        snakemake = FakeSnakemake()
+        # You can set up test inputs here
+        main(snakemake)

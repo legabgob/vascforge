@@ -174,16 +174,25 @@ def process_dataset_batch(
     results = []
     failed = []
     
-    for i, retina in enumerate(loader):
+    # Use index-based iteration so loader crashes (e.g. NaN in disc/fovea) are
+    # caught per-image and don't kill the entire batch job.
+    for i in range(len(loader)):
+        image_id = f"index_{i}"  # fallback ID if loading fails before we get retina.id
         try:
-            print(f"[{i+1}/{len(loader)}] Processing {retina.id}...", end=' ')
+            retina = loader[i]  # ← inside try/except so VascX init errors are caught
+            image_id = retina.id
+            print(f"[{i+1}/{len(loader)}] Processing {image_id}...", end=' ')
             
-            # Get combined vessels layer
+            # Use arteries layer (where combined vessel masks are loaded by VascX)
             layer = retina.arteries
+            if layer is None or layer.graph is None or layer.graph.number_of_nodes() == 0:
+                layer = retina.veins  # fallback
+                if layer is None or layer.graph is None or layer.graph.number_of_nodes() == 0:
+                    raise ValueError("No vessel data found in arteries or veins layer")
             
             # Calculate metrics
             metrics = calculate_image_metrics(layer)
-            metrics['image_id'] = retina.id
+            metrics['image_id'] = image_id
             
             results.append(metrics)
             print(f"✓ ({metrics['num_components']} CCs)")
@@ -191,7 +200,7 @@ def process_dataset_batch(
         except Exception as e:
             print(f"✗ FAILED: {e}")
             failed.append({
-                'image_id': retina.id,
+                'image_id': image_id,
                 'error': str(e)
             })
     
