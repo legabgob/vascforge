@@ -197,3 +197,4 @@ rule plot_connectivity_refined_otherdir:
         "logs/connectivity/plot_refined_{dataset}_{other_dir}_k{k}_{res}px.log"
     script:
         "../scripts/plot_connectivity_metrics_batch.py"
+

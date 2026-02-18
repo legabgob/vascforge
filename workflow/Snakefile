@@ -323,6 +323,18 @@ if CONNECTIVITY_COMPARISON:
     ]
 else:
     CONNECTIVITY_COMPARISON_TARGETS = []
+
+if CONNECTIVITY_REFINED and CONNECTIVITY_UNREFINED:
+    rule aggregate_connectivity_master:
+        """Stack all per-image summary CSVs into one master CSV. k=0 = unrefined."""
+        input:
+            summaries = CONNECTIVITY_REFINED_TARGETS + CONNECTIVITY_UNREFINED_TARGETS
+        output:
+            master_csv = f"{CONNECTIVITY_OUT}/master_connectivity.csv"
+        params:
+            connectivity_out = CONNECTIVITY_OUT
+        script:
+            "scripts/aggregate_connectivity_results.py"
 rule all:
     input:
         # Ensure meta gets copied for all datasets
@@ -368,6 +380,8 @@ rule all:
         CONNECTIVITY_REFINED_TARGETS,
         CONNECTIVITY_UNREFINED_TARGETS,
         CONNECTIVITY_COMPARISON_TARGETS,
+
+        f"{CONNECTIVITY_OUT}/master_connectivity.csv" if (CONNECTIVITY_REFINED and CONNECTIVITY_UNREFINED) else [],
 
     log:
         errors="logs/all.err",
