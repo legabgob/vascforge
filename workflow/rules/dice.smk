@@ -151,26 +151,19 @@ def _vessel_native_dirs(dataset: str):
     return (ds.get("gt_native_dir", ""), ds.get("seg_native_dir", ""))
 
 def _metrics_inputs_simple(wc):
-    """Dependencies for dataset-only rules."""
+    """Dependencies for dataset-only rules (per resolution)."""
     ds = wc.dataset
+    res = wc.res
 
     refined_dirs = [
         f"results/refined/{ds}/k{k}/downsampled/{res}px"
         for k in K_VALUES
-        for res in RESOLUTIONS
     ]
-    # CHANGED: Use *_square directories
-    unref_dirs = [
-        f"data/{ds}/downsampled/1024px/segs_converted",
-        f"data/{ds}/downsampled/576px/segs_converted",
-    ]
-    roi_dirs = [
-        f"data/{ds}/downsampled/1024px/roi_masks_binarized",
-        f"data/{ds}/downsampled/576px/roi_masks_binarized",
-    ]
+    unref_dirs = [f"data/{ds}/downsampled/{res}px/segs_converted"]
+    roi_dirs = [f"data/{ds}/downsampled/{res}px/roi_masks_binarized"]
 
     if ds in AV_GT_DATASETS:
-        gt_dirs = [_gt_av_dir(ds, "1024"), _gt_av_dir(ds, "576")]
+        gt_dirs = [_gt_av_dir(ds, res)]
     else:
         gt_native_dir, seg_native_dir = _vessel_native_dirs(ds)
         gt_dirs = [gt_native_dir, seg_native_dir]
@@ -178,25 +171,18 @@ def _metrics_inputs_simple(wc):
     return [p for p in (refined_dirs + unref_dirs + roi_dirs + gt_dirs) if p]
 
 def _metrics_inputs_otherdir(wc):
-    """Dependencies for dataset+other_dir rules."""
+    """Dependencies for dataset+other_dir rules (per resolution)."""
     ds = wc.dataset
     od = wc.other_dir
+    res = wc.res
 
     refined_dirs = [
         f"results/refined/{ds}/k{k}/downsampled/{res}px"
         for k in K_VALUES
-        for res in RESOLUTIONS
     ]
-    # CHANGED: Use *_square directories
-    unref_dirs = [
-        f"data/{ds}/downsampled/1024px/segs_converted",
-        f"data/{ds}/downsampled/576px/segs_converted",
-    ]
-    roi_dirs = [
-        f"data/{ds}/downsampled/1024px/roi_masks_binarized",
-        f"data/{ds}/downsampled/576px/roi_masks_binarized",
-    ]
-    gt_dirs = [_gt_av_dir_other(ds, od, "1024"), _gt_av_dir_other(ds, od, "576")]
+    unref_dirs = [f"data/{ds}/downsampled/{res}px/segs_converted"]
+    roi_dirs = [f"data/{ds}/downsampled/{res}px/roi_masks_binarized"]
+    gt_dirs = [_gt_av_dir_other(ds, od, res)]
 
     return [p for p in (refined_dirs + unref_dirs + roi_dirs + gt_dirs) if p]
 
@@ -211,19 +197,13 @@ rule compute_metrics_av_simple:
     input:
         _metrics_inputs_simple
     output:
-        csv_1024 = f"{METRICS_DIR}" + "/{dataset}/metrics_1024.csv",
-        csv_576  = f"{METRICS_DIR}" + "/{dataset}/metrics_576.csv",
+        csv = f"{METRICS_DIR}" + "/{dataset}/metrics_{res}.csv",
     params:
         has_av_gt = 1,
-        refined_root   = lambda wc: f"results/refined/{wc.dataset}",
-        # CHANGED: Use *_square directories
-        unref_1024_dir = lambda wc: f"data/{wc.dataset}/downsampled/1024px/segs_converted",
-        unref_576_dir  = lambda wc: f"data/{wc.dataset}/downsampled/576px/segs_converted",
-        gt_1024_dir = lambda wc: _gt_av_dir(wc.dataset, "1024"),
-        gt_576_dir  = lambda wc: _gt_av_dir(wc.dataset, "576"),
-        # CHANGED: Use *_square directories
-        roi_1024_dir = lambda wc: f"data/{wc.dataset}/downsampled/1024px/roi_masks_binarized",
-        roi_576_dir  = lambda wc: f"data/{wc.dataset}/downsampled/576px/roi_masks_binarized",
+        refined_root = lambda wc: f"results/refined/{wc.dataset}",
+        unref_dir    = lambda wc: f"data/{wc.dataset}/downsampled/{wc.res}px/segs_converted",
+        gt_dir       = lambda wc: _gt_av_dir(wc.dataset, wc.res),
+        roi_dir      = lambda wc: f"data/{wc.dataset}/downsampled/{wc.res}px/roi_masks_binarized",
         gt_native_dir  = "",
         seg_native_dir = "",
     script:
@@ -236,19 +216,13 @@ rule compute_metrics_av_otherdir:
     input:
         _metrics_inputs_otherdir
     output:
-        csv_1024 = f"{METRICS_DIR}" + "/{dataset}/{other_dir}/metrics_1024.csv",
-        csv_576  = f"{METRICS_DIR}" + "/{dataset}/{other_dir}/metrics_576.csv",
+        csv = f"{METRICS_DIR}" + "/{dataset}/{other_dir}/metrics_{res}.csv",
     params:
         has_av_gt = 1,
-        refined_root   = lambda wc: f"results/refined/{wc.dataset}",
-        # CHANGED: Use *_square directories
-        unref_1024_dir = lambda wc: f"data/{wc.dataset}/downsampled/1024px/segs_converted",
-        unref_576_dir  = lambda wc: f"data/{wc.dataset}/downsampled/576px/segs_converted",
-        gt_1024_dir = lambda wc: _gt_av_dir_other(wc.dataset, wc.other_dir, "1024"),
-        gt_576_dir  = lambda wc: _gt_av_dir_other(wc.dataset, wc.other_dir, "576"),
-        # CHANGED: Use *_square directories
-        roi_1024_dir = lambda wc: f"data/{wc.dataset}/downsampled/1024px/roi_masks_binarized",
-        roi_576_dir  = lambda wc: f"data/{wc.dataset}/downsampled/576px/roi_masks_binarized",
+        refined_root = lambda wc: f"results/refined/{wc.dataset}",
+        unref_dir    = lambda wc: f"data/{wc.dataset}/downsampled/{wc.res}px/segs_converted",
+        gt_dir       = lambda wc: _gt_av_dir_other(wc.dataset, wc.other_dir, wc.res),
+        roi_dir      = lambda wc: f"data/{wc.dataset}/downsampled/{wc.res}px/roi_masks_binarized",
         gt_native_dir  = "",
         seg_native_dir = "",
     script:
@@ -261,18 +235,13 @@ rule compute_metrics_vessel_only:
     input:
         _metrics_inputs_simple
     output:
-        csv_1024 = f"{METRICS_DIR}" + "/{dataset}/metrics_1024.csv",
-        csv_576  = f"{METRICS_DIR}" + "/{dataset}/metrics_576.csv",
+        csv = f"{METRICS_DIR}" + "/{dataset}/metrics_{res}.csv",
     params:
         has_av_gt = 0,
-        refined_root   = lambda wc: f"results/refined/{wc.dataset}",
-        # CHANGED: Use *_square directories
-        unref_1024_dir = lambda wc: f"data/{wc.dataset}/downsampled/1024px/segs_converted",
-        unref_576_dir  = lambda wc: f"data/{wc.dataset}/downsampled/576px/segs_converted",
-        gt_1024_dir = "",
-        gt_576_dir  = "",
-        roi_1024_dir = "",
-        roi_576_dir  = "",
+        refined_root = lambda wc: f"results/refined/{wc.dataset}",
+        unref_dir    = lambda wc: f"data/{wc.dataset}/downsampled/{wc.res}px/segs_converted",
+        gt_dir       = "",
+        roi_dir      = "",
         gt_native_dir  = lambda wc: _vessel_native_dirs(wc.dataset)[0],
         seg_native_dir = lambda wc: _vessel_native_dirs(wc.dataset)[1],
     script:

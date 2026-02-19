@@ -3,10 +3,7 @@ from snakemake.io import directory
 
 rule refinement:
     input:
-        weights = lambda wc: (
-            "data/weights/rrwnet_HRF_0.pth" if wc.res == "1024"
-            else "data/weights/rrwnet_RITE_refinement.pth"
-        ),
+        weights = lambda wc: config["weights"][str(wc.res)],
         # These are produced by the downsample rule (directory outputs)
         segmentations = "data/{dataset}/downsampled/{res}px/segs_converted",
         masks = "data/{dataset}/downsampled/{res}px/roi_masks_binarized",
