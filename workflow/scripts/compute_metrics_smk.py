@@ -285,59 +285,48 @@ def build_df_vessel_for_res(
 
 # Expected from Snakemake:
 #   wildcards.dataset              -> dataset name (e.g. "Fundus-AVSeg", "FIVES")
+#   wildcards.res                  -> resolution (e.g. "1024", "576")
 #   params.has_av_gt               -> bool/int: 1 if A/V GT available, 0 if only vessel GT
 #   params.refined_root            -> base refined root path
-#   params.unref_1024_dir          -> unrefined segs at 1024px
-#   params.unref_576_dir           -> unrefined segs at 576px
+#   params.unref_dir               -> unrefined segs at this resolution
 #
 #   If has_av_gt:
-#       params.gt_1024_dir, params.gt_576_dir, params.roi_1024_dir, params.roi_576_dir
+#       params.gt_dir, params.roi_dir
 #   Else:
 #       params.gt_native_dir, params.seg_native_dir
 #
-#   output.csv_1024, output.csv_576 -> where to write CSVs
+#   output.csv                     -> where to write the CSV
 
 wc = snakemake.wildcards
 params = snakemake.params
 
 dataset = str(wc.dataset)
+res = str(wc.res)
 has_av_gt = bool(int(params.has_av_gt))
 
 refined_root = Path(str(params.refined_root))
 
-# Resolution subdirs under refined_root/kX/
-res_subdir_1024 = Path("downsampled/1024px")
-res_subdir_576 = Path("downsampled/576px")
+# Resolution subdir under refined_root/kX/
+res_subdir = Path(f"downsampled/{res}px")
 
-# Find k* dirs for both resolutions
-k_dirs_1024 = find_k_dirs_for_res(refined_root, res_subdir_1024)
-if not k_dirs_1024:
-    raise SystemExit(f"No k* with {res_subdir_1024} under {refined_root}")
+# Find k* dirs for this resolution
+k_dirs = find_k_dirs_for_res(refined_root, res_subdir)
+if not k_dirs:
+    raise SystemExit(f"No k* with {res_subdir} under {refined_root}")
 
-k_dirs_576 = find_k_dirs_for_res(refined_root, res_subdir_576)
-if not k_dirs_576:
-    raise SystemExit(f"No k* with {res_subdir_576} under {refined_root}")
-
-out_csv_1024 = Path(str(snakemake.output.csv_1024))
-out_csv_576 = Path(str(snakemake.output.csv_576))
-
-unref_1024_dir = Path(str(params.unref_1024_dir))
-unref_576_dir = Path(str(params.unref_576_dir))
+out_csv = Path(str(snakemake.output.csv))
+unref_dir = Path(str(params.unref_dir))
 
 if has_av_gt:
     # A/V GT branch
-    gt_1024_dir = Path(str(params.gt_1024_dir))
-    gt_576_dir = Path(str(params.gt_576_dir))
-    roi_1024_dir = Path(str(params.roi_1024_dir)) if params.roi_1024_dir else None
-    roi_576_dir = Path(str(params.roi_576_dir)) if params.roi_576_dir else None
+    gt_dir = Path(str(params.gt_dir))
+    roi_dir = Path(str(params.roi_dir)) if params.roi_dir else None
 
-    df_1024 = build_df_av_for_res(gt_1024_dir, unref_1024_dir, k_dirs_1024, roi_dir=roi_1024_dir)
-    df_576 = build_df_av_for_res(gt_576_dir, unref_576_dir, k_dirs_576, roi_dir=roi_576_dir)
+    df = build_df_av_for_res(gt_dir, unref_dir, k_dirs, roi_dir=roi_dir)
 
-    df_1024.to_csv(out_csv_1024, float_format="%.6f")
-    df_576.to_csv(out_csv_576, float_format="%.6f")
+    df.to_csv(out_csv, float_format="%.6f")
 
-    print(f"[{dataset}] A/V GT mode: saved {out_csv_1024} ({df_1024.shape}) and {out_csv_576} ({df_576.shape})")
+    print(f"[{dataset}] A/V GT mode ({res}px): saved {out_csv} ({df.shape})")
 
 else:
     # Vessel-only GT branch
@@ -346,11 +335,9 @@ else:
 
     seg_vs_gt = compute_seg_vs_gt_map(gt_native_dir, seg_native_dir)
 
-    df_1024 = build_df_vessel_for_res(seg_vs_gt, unref_1024_dir, k_dirs_1024)
-    df_576 = build_df_vessel_for_res(seg_vs_gt, unref_576_dir, k_dirs_576)
+    df = build_df_vessel_for_res(seg_vs_gt, unref_dir, k_dirs)
 
-    df_1024.to_csv(out_csv_1024, float_format="%.6f")
-    df_576.to_csv(out_csv_576, float_format="%.6f")
+    df.to_csv(out_csv, float_format="%.6f")
 
-    print(f"[{dataset}] vessel-only GT mode: saved {out_csv_1024} ({df_1024.shape}) and {out_csv_576} ({df_576.shape})")
+    print(f"[{dataset}] vessel-only GT mode ({res}px): saved {out_csv} ({df.shape})")
 

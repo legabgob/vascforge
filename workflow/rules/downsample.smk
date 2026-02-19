@@ -2,7 +2,7 @@
 from snakemake.io import directory
 
 KINDS = ["segs_converted", "roi_masks_binarized"]
-WIDTHS = ["576", "1024"]
+WIDTHS = [str(r) for r in config.get("resolutions", ["576", "1024"])]
 
 rule downsample:
     """
