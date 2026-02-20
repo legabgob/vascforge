@@ -109,6 +109,7 @@ rule downsample_gt_av_simple:
     params:
         kind = "gt",
         width = lambda wc: int(wc.res),
+        height = lambda wc: int(wc.res),
         ext = ".png"
     script:
         "../scripts/downsample_dir_smk.py"
@@ -157,6 +158,7 @@ rule downsample_gt_av_otherdir:
     params:
         kind = "gt",
         width = lambda wc: int(wc.res),
+        height = lambda wc: int(wc.res),
         ext = ".png"
     script:
         "../scripts/downsample_dir_smk.py"

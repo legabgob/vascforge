@@ -9,9 +9,10 @@
 #   output:
 #     out_dir = directory("path/to/output_dir")
 #   params:
-#     kind  = "segs_converted" | "roi_masks_binarized" | "gt" | "gt_vessel" | ...
-#     width = 576 | 1024 | ...
-#     ext   = ".png" (optional; default ".png")
+#     kind   = "segs_converted" | "roi_masks_binarized" | "gt" | "gt_vessel" | ...
+#     width  = 576 | 1024 | ...
+#     height = 576 | 1024 | ... (optional; if omitted, aspect ratio is preserved)
+#     ext    = ".png" (optional; default ".png")
 #
 # This script processes files directly under in_dir (non-recursive).
 
@@ -30,7 +31,7 @@ GRAY_KINDS = {
 def normalize_kind(kind: str) -> str:
     return kind.strip().lower().replace("-", "_")
 
-def downsample_one(src: Path, dst: Path, kind: str, target_w: int):
+def downsample_one(src: Path, dst: Path, kind: str, target_w: int, target_h: int = None):
     kind_n = normalize_kind(kind)
 
     im = Image.open(src)
@@ -51,7 +52,9 @@ def downsample_one(src: Path, dst: Path, kind: str, target_w: int):
     if w == 0 or h == 0:
         raise ValueError(f"Invalid image size for {src}: {(w,h)}")
 
-    target_h = int(round(h * (target_w / float(w))))
+    if target_h is None:
+        target_h = int(round(h * (target_w / float(w))))
+
     im_small = im.resize((target_w, target_h), resample=resample)
 
     dst.parent.mkdir(parents=True, exist_ok=True)
@@ -64,6 +67,10 @@ kind = str(snakemake.params.kind)
 width = int(snakemake.params.width)
 ext = getattr(snakemake.params, "ext", ".png")
 
+target_h = getattr(snakemake.params, "height", None)
+if target_h is not None:
+    target_h = int(target_h)
+
 out_dir.mkdir(parents=True, exist_ok=True)
 
 files = sorted(p for p in in_dir.glob(f"*{ext}") if p.is_file())
@@ -72,9 +79,8 @@ if not files:
 
 for i, src in enumerate(files, 1):
     dst = out_dir / src.name
-    downsample_one(src, dst, kind, width)
+    downsample_one(src, dst, kind, width, target_h)
     if i % 100 == 0:
         print(f"[downsample_dir] {i}/{len(files)} done...")
 
 print(f"[downsample_dir] Done. Wrote {len(files)} file(s) to {out_dir}")
-
