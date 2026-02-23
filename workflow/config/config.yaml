@@ -96,3 +96,10 @@ vascx:
   connectivity_refined_enabled: true
   connectivity_unrefined_enabled: true
   connectivity_comparison_enabled: true
+
+
+analysis:
+  res: 1024       # which resolution's metrics CSV to use for DICE plots
+  k_compare: 8   # k used in the CC-vs-OD scatter plot
+  k_top: 8       # k used for top-CC-reduction table
+  top_n: 3       # images per dataset in the top-CC table

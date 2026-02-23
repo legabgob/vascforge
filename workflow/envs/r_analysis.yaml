@@ -1,0 +1,11 @@
+# envs/r_analysis.yaml
+name: r_analysis
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - r-base=4.4.0
+  - r-tidyverse
+  - r-ggridges
+  - r-scales
+  - r-ggpubr
