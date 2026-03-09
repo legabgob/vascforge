@@ -46,6 +46,13 @@ rule aggregate_vascx_simple:
         get_vascx_inputs_simple
     output:
         aggregated = f"{VASCX_AGGREGATED_OUT}" + "/{dataset}/downsampled/{res}px/vascx_features_aggregated.tsv"
+    benchmark:
+        "benchmarks/aggregate_vascx_simple/{dataset}_{res}px.tsv"
+    params:
+        name = "aggregate_vascx_simple",
+        time = "01:00:00",
+        mem = 8000,
+        threads = 1,
     run:
         import pandas as pd
         from pathlib import Path
@@ -103,6 +110,13 @@ rule aggregate_vascx_otherdir:
         get_vascx_inputs_otherdir
     output:
         aggregated = f"{VASCX_AGGREGATED_OUT}" + "/{dataset}/{other_dir}/downsampled/{res}px/vascx_features_aggregated.tsv"
+    benchmark:
+        "benchmarks/aggregate_vascx_otherdir/{dataset}_{other_dir}_{res}px.tsv"
+    params:
+        name = "aggregate_vascx_otherdir",
+        time = "01:00:00",
+        mem = 8000,
+        threads = 1,
     run:
         import pandas as pd
         from pathlib import Path

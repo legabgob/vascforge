@@ -198,7 +198,13 @@ rule compute_metrics_av_simple:
         _metrics_inputs_simple
     output:
         csv = f"{METRICS_DIR}" + "/{dataset}/metrics_{res}.csv",
+    benchmark:
+        "benchmarks/compute_metrics_av_simple/{dataset}_{res}.tsv"
     params:
+        name = "compute_metrics_av_simple",
+        time = "02:00:00",
+        mem = 8000,
+        threads = 1,
         has_av_gt = 1,
         refined_root = lambda wc: f"results/refined/{wc.dataset}",
         unref_dir    = lambda wc: f"data/{wc.dataset}/downsampled/{wc.res}px/segs_converted",
@@ -217,7 +223,13 @@ rule compute_metrics_av_otherdir:
         _metrics_inputs_otherdir
     output:
         csv = f"{METRICS_DIR}" + "/{dataset}/{other_dir}/metrics_{res}.csv",
+    benchmark:
+        "benchmarks/compute_metrics_av_otherdir/{dataset}_{other_dir}_{res}.tsv"
     params:
+        name = "compute_metrics_av_otherdir",
+        time = "02:00:00",
+        mem = 8000,
+        threads = 1,
         has_av_gt = 1,
         refined_root = lambda wc: f"results/refined/{wc.dataset}",
         unref_dir    = lambda wc: f"data/{wc.dataset}/downsampled/{wc.res}px/segs_converted",
@@ -236,7 +248,13 @@ rule compute_metrics_vessel_only:
         _metrics_inputs_simple
     output:
         csv = f"{METRICS_DIR}" + "/{dataset}/metrics_{res}.csv",
+    benchmark:
+        "benchmarks/compute_metrics_vessel_only/{dataset}_{res}.tsv"
     params:
+        name = "compute_metrics_vessel_only",
+        time = "02:00:00",
+        mem = 8000,
+        threads = 1,
         has_av_gt = 0,
         refined_root = lambda wc: f"results/refined/{wc.dataset}",
         unref_dir    = lambda wc: f"data/{wc.dataset}/downsampled/{wc.res}px/segs_converted",

@@ -52,9 +52,15 @@ rule analysis:
         connectivity = "results/connectivity/master_connectivity.csv",
     output:
         out_dir = directory("results/analysis/plots"),
+    benchmark:
+        "benchmarks/analysis.tsv"
     conda:
         "../envs/r_analysis.yaml"
     params:
+        name = "analysis",
+        time = "02:00:00",
+        mem = 8000,
+        threads = 1,
         k_refined  = _K_REFINED,
         k_compare  = ANALYSIS_CFG.get("k_compare", 5),
         k_top      = ANALYSIS_CFG.get("k_top",     8),

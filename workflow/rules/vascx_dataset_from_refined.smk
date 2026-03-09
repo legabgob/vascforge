@@ -60,6 +60,13 @@ rule make_vascx_view_simple:
         fovea = lambda wc: os.path.join(LEGACY_ROOT, wc.dataset, "seg_legacy", "fovea.csv"),
     output:
         view = directory(f"{VASCX_VIEW_ROOT}" + "/{dataset}/k{k}/downsampled/{res}px"),
+    benchmark:
+        "benchmarks/make_vascx_view_simple/{dataset}_k{k}_{res}px.tsv"
+    params:
+        name = "make_vascx_view_simple",
+        time = "00:10:00",
+        mem = 1000,
+        threads = 1,
     run:
         view = Path(output.view)
         view.mkdir(parents=True, exist_ok=True)
@@ -104,6 +111,13 @@ rule make_vascx_view_otherdir:
         fovea = lambda wc: os.path.join(LEGACY_ROOT, wc.dataset, wc.other_dir, "seg_legacy", "fovea.csv"),
     output:
         view = directory(f"{VASCX_VIEW_ROOT}" + "/{dataset}/{other_dir}/k{k}/downsampled/{res}px"),
+    benchmark:
+        "benchmarks/make_vascx_view_otherdir/{dataset}_{other_dir}_k{k}_{res}px.tsv"
+    params:
+        name = "make_vascx_view_otherdir",
+        time = "00:10:00",
+        mem = 1000,
+        threads = 1,
     run:
         view = Path(output.view)
         view.mkdir(parents=True, exist_ok=True)

@@ -335,7 +335,13 @@ if CONNECTIVITY_REFINED and CONNECTIVITY_UNREFINED:
             summaries = CONNECTIVITY_REFINED_TARGETS + CONNECTIVITY_UNREFINED_TARGETS
         output:
             master_csv = f"{CONNECTIVITY_OUT}/master_connectivity.csv"
+        benchmark:
+            "benchmarks/aggregate_connectivity_master.tsv"
         params:
+            name = "aggregate_connectivity_master",
+            time = "01:00:00",
+            mem = 8000,
+            threads = 1,
             connectivity_out = CONNECTIVITY_OUT
         script:
             "scripts/aggregate_connectivity_results.py"
