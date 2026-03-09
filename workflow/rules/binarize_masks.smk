@@ -18,4 +18,4 @@ rule binarize_roi_masks:
         threads = 1,
         ext = ".png"
     script:
-
+        "../scripts/binarize_masks_smk.py"
