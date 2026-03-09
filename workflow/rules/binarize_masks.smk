@@ -9,8 +9,14 @@ rule binarize_roi_masks:
         in_dir = "data/{dataset}/roi_masks"
     output:
         out_dir = directory("data/{dataset}/roi_masks_binarized")
+    benchmark:
+        "benchmarks/binarize_roi_masks/{dataset}.tsv"
     params:
-        ext = ".png"
+        name = "binarize_roi_masks",
+        time = "00:30:00",
+        mem = 4000,
+        threads = 1,
+        ext = ".png",
     script:
         "../scripts/binarize_masks_smk.py"
 

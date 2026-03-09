@@ -41,6 +41,13 @@ rule copy_meta_csv:
         src = find_meta_like_csv
     output:
         dst = "data/{dataset}/meta/meta.csv"
+    benchmark:
+        "benchmarks/copy_meta_csv/{dataset}.tsv"
+    params:
+        name = "copy_meta_csv",
+        time = "00:10:00",
+        mem = 1000,
+        threads = 1,
     shell:
         r"""
         mkdir -p $(dirname "{output.dst}")

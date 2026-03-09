@@ -28,7 +28,13 @@ rule connectivity_refined_simple:
     output:
         summary = f"{CONNECTIVITY_OUT}" + "/refined/{dataset}/k{k}/downsampled/{res}px/summary.csv",
         stats = f"{CONNECTIVITY_OUT}" + "/refined/{dataset}/k{k}/downsampled/{res}px/statistics.json"
+    benchmark:
+        "benchmarks/connectivity_refined_simple/{dataset}_k{k}_{res}px.tsv"
     params:
+        name = "connectivity_refined_simple",
+        time = "04:00:00",
+        mem = 8000,
+        threads = 1,
         output_dir = f"{CONNECTIVITY_OUT}" + "/refined/{dataset}/k{k}/downsampled/{res}px"
     log:
         "logs/connectivity/refined/{dataset}_k{k}_{res}px.log"
@@ -52,7 +58,13 @@ rule connectivity_refined_otherdir:
     output:
         summary = f"{CONNECTIVITY_OUT}" + "/refined/{dataset}/{other_dir}/k{k}/downsampled/{res}px/summary.csv",
         stats = f"{CONNECTIVITY_OUT}" + "/refined/{dataset}/{other_dir}/k{k}/downsampled/{res}px/statistics.json"
+    benchmark:
+        "benchmarks/connectivity_refined_otherdir/{dataset}_{other_dir}_k{k}_{res}px.tsv"
     params:
+        name = "connectivity_refined_otherdir",
+        time = "04:00:00",
+        mem = 8000,
+        threads = 1,
         output_dir = f"{CONNECTIVITY_OUT}" + "/refined/{dataset}/{other_dir}/k{k}/downsampled/{res}px"
     log:
         "logs/connectivity/refined/{dataset}_{other_dir}_k{k}_{res}px.log"
@@ -80,7 +92,13 @@ rule connectivity_unrefined_simple:
     output:
         summary = f"{CONNECTIVITY_OUT}" + "/unrefined/{dataset}/downsampled/{res}px/summary.csv",
         stats = f"{CONNECTIVITY_OUT}" + "/unrefined/{dataset}/downsampled/{res}px/statistics.json"
+    benchmark:
+        "benchmarks/connectivity_unrefined_simple/{dataset}_{res}px.tsv"
     params:
+        name = "connectivity_unrefined_simple",
+        time = "04:00:00",
+        mem = 8000,
+        threads = 1,
         output_dir = f"{CONNECTIVITY_OUT}" + "/unrefined/{dataset}/downsampled/{res}px"
     log:
         "logs/connectivity/unrefined/{dataset}_{res}px.log"
@@ -104,7 +122,13 @@ rule connectivity_unrefined_otherdir:
     output:
         summary = f"{CONNECTIVITY_OUT}" + "/unrefined/{dataset}/{other_dir}/downsampled/{res}px/summary.csv",
         stats = f"{CONNECTIVITY_OUT}" + "/unrefined/{dataset}/{other_dir}/downsampled/{res}px/statistics.json"
+    benchmark:
+        "benchmarks/connectivity_unrefined_otherdir/{dataset}_{other_dir}_{res}px.tsv"
     params:
+        name = "connectivity_unrefined_otherdir",
+        time = "04:00:00",
+        mem = 8000,
+        threads = 1,
         output_dir = f"{CONNECTIVITY_OUT}" + "/unrefined/{dataset}/{other_dir}/downsampled/{res}px"
     log:
         "logs/connectivity/unrefined/{dataset}_{other_dir}_{res}px.log"
@@ -134,7 +158,13 @@ rule compare_connectivity_simple:
         comparison = f"{CONNECTIVITY_OUT}" + "/comparison/{dataset}/k{k}/downsampled/{res}px/refinement_comparison.csv",
         stats = f"{CONNECTIVITY_OUT}" + "/comparison/{dataset}/k{k}/downsampled/{res}px/refinement_stats.json",
         plot = f"{CONNECTIVITY_OUT}" + "/comparison/{dataset}/k{k}/downsampled/{res}px/refinement_plot.pdf"
+    benchmark:
+        "benchmarks/compare_connectivity_simple/{dataset}_k{k}_{res}px.tsv"
     params:
+        name = "compare_connectivity_simple",
+        time = "01:00:00",
+        mem = 4000,
+        threads = 1,
         metrics = ['num_components', 'proportion_nodes_connected', 'proportion_length_connected']
     log:
         "logs/connectivity/compare_{dataset}_k{k}_{res}px.log"
@@ -153,7 +183,13 @@ rule compare_connectivity_otherdir:
         comparison = f"{CONNECTIVITY_OUT}" + "/comparison/{dataset}/{other_dir}/k{k}/downsampled/{res}px/refinement_comparison.csv",
         stats = f"{CONNECTIVITY_OUT}" + "/comparison/{dataset}/{other_dir}/k{k}/downsampled/{res}px/refinement_stats.json",
         plot = f"{CONNECTIVITY_OUT}" + "/comparison/{dataset}/{other_dir}/k{k}/downsampled/{res}px/refinement_plot.pdf"
+    benchmark:
+        "benchmarks/compare_connectivity_otherdir/{dataset}_{other_dir}_k{k}_{res}px.tsv"
     params:
+        name = "compare_connectivity_otherdir",
+        time = "01:00:00",
+        mem = 4000,
+        threads = 1,
         metrics = ['num_components', 'proportion_nodes_connected', 'proportion_length_connected']
     log:
         "logs/connectivity/compare_{dataset}_{other_dir}_k{k}_{res}px.log"
@@ -176,6 +212,13 @@ rule plot_connectivity_refined_simple:
         cc_dist = f"{CONNECTIVITY_OUT}" + "/refined/{dataset}/k{k}/downsampled/{res}px/plots/cc_distribution.pdf",
         size_dist = f"{CONNECTIVITY_OUT}" + "/refined/{dataset}/k{k}/downsampled/{res}px/plots/size_distribution.pdf",
         od_conn = f"{CONNECTIVITY_OUT}" + "/refined/{dataset}/k{k}/downsampled/{res}px/plots/od_connectivity.pdf"
+    benchmark:
+        "benchmarks/plot_connectivity_refined_simple/{dataset}_k{k}_{res}px.tsv"
+    params:
+        name = "plot_connectivity_refined_simple",
+        time = "00:30:00",
+        mem = 4000,
+        threads = 1,
     log:
         "logs/connectivity/plot_refined_{dataset}_k{k}_{res}px.log"
     script:
@@ -193,6 +236,13 @@ rule plot_connectivity_refined_otherdir:
         cc_dist = f"{CONNECTIVITY_OUT}" + "/refined/{dataset}/{other_dir}/k{k}/downsampled/{res}px/plots/cc_distribution.pdf",
         size_dist = f"{CONNECTIVITY_OUT}" + "/refined/{dataset}/{other_dir}/k{k}/downsampled/{res}px/plots/size_distribution.pdf",
         od_conn = f"{CONNECTIVITY_OUT}" + "/refined/{dataset}/{other_dir}/k{k}/downsampled/{res}px/plots/od_connectivity.pdf"
+    benchmark:
+        "benchmarks/plot_connectivity_refined_otherdir/{dataset}_{other_dir}_k{k}_{res}px.tsv"
+    params:
+        name = "plot_connectivity_refined_otherdir",
+        time = "00:30:00",
+        mem = 4000,
+        threads = 1,
     log:
         "logs/connectivity/plot_refined_{dataset}_{other_dir}_k{k}_{res}px.log"
     script:

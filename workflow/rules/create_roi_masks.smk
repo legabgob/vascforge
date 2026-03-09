@@ -6,7 +6,13 @@ rule make_roi_masks:
         csv = "data/{dataset}/meta/meta_filtered.csv"
     output:
         out_dir = directory("data/{dataset}/roi_masks")
+    benchmark:
+        "benchmarks/make_roi_masks/{dataset}.tsv"
     params:
+        name = "make_roi_masks",
+        time = "00:30:00",
+        mem = 4000,
+        threads = 1,
         img_dir = lambda wc: f"data/{wc.dataset}/images",
         img_ext = ".png",
         skip_if_flag_false = True,

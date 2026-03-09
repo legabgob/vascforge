@@ -29,6 +29,13 @@ rule make_vascx_view_unrefined_simple:
         meta = "data/{dataset}/meta/meta_filtered.csv",
     output:
         view = directory(f"{VASCX_UNREFINED_ROOT}" + "/{dataset}/downsampled/{res}px"),
+    benchmark:
+        "benchmarks/make_vascx_view_unrefined_simple/{dataset}_{res}px.tsv"
+    params:
+        name = "make_vascx_view_unrefined_simple",
+        time = "01:00:00",
+        mem = 4000,
+        threads = 1,
     run:
         from PIL import Image
         import shutil
@@ -106,6 +113,13 @@ rule make_vascx_view_unrefined_otherdir:
         meta = "data/{dataset}/meta/meta_filtered.csv",
     output:
         view = directory(f"{VASCX_UNREFINED_ROOT}" + "/{dataset}/{other_dir}/downsampled/{res}px"),
+    benchmark:
+        "benchmarks/make_vascx_view_unrefined_otherdir/{dataset}_{other_dir}_{res}px.tsv"
+    params:
+        name = "make_vascx_view_unrefined_otherdir",
+        time = "01:00:00",
+        mem = 4000,
+        threads = 1,
     run:
         from PIL import Image
         import shutil
@@ -181,6 +195,13 @@ rule vascx_features_unrefined_simple:
         ds_dir = f"{VASCX_UNREFINED_ROOT}" + "/{dataset}/downsampled/{res}px"
     output:
         features = f"{FEATURES_UNREFINED_OUT}" + "/{dataset}/downsampled/{res}px/vascx_features.tsv"
+    benchmark:
+        "benchmarks/vascx_features_unrefined_simple/{dataset}_{res}px.tsv"
+    params:
+        name = "vascx_features_unrefined_simple",
+        time = "08:00:00",
+        mem = 16000,
+        threads = 8,
     log:
         "logs/vascx_features_unrefined/{dataset}_{res}px.log"
     shell:
@@ -203,6 +224,13 @@ rule vascx_features_unrefined_otherdir:
         ds_dir = f"{VASCX_UNREFINED_ROOT}" + "/{dataset}/{other_dir}/downsampled/{res}px"
     output:
         features = f"{FEATURES_UNREFINED_OUT}" + "/{dataset}/{other_dir}/downsampled/{res}px/vascx_features.tsv"
+    benchmark:
+        "benchmarks/vascx_features_unrefined_otherdir/{dataset}_{other_dir}_{res}px.tsv"
+    params:
+        name = "vascx_features_unrefined_otherdir",
+        time = "08:00:00",
+        mem = 16000,
+        threads = 8,
     log:
         "logs/vascx_features_unrefined/{dataset}_{other_dir}_{res}px.log"
     shell:

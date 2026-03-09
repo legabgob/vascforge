@@ -34,6 +34,13 @@ rule gray_to_rgb:
         av_dir = find_av_dir
     output:
         out_dir = directory("data/{dataset}/segs_converted")
+    benchmark:
+        "benchmarks/gray_to_rgb/{dataset}.tsv"
+    params:
+        name = "gray_to_rgb",
+        time = "00:30:00",
+        mem = 4000,
+        threads = 1,
     script:
         "../scripts/gray_to_rgb_dir_smk.py"
 

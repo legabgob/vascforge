@@ -14,7 +14,13 @@ rule filter_meta_by_segs:
         meta_csv = "data/{dataset}/meta/meta.csv",
     output:
         meta_filtered = "data/{dataset}/meta/meta_filtered.csv",
+    benchmark:
+        "benchmarks/filter_meta_by_segs/{dataset}.tsv"
     params:
+        name = "filter_meta_by_segs",
+        time = "00:10:00",
+        mem = 1000,
+        threads = 1,
         ext = ".png",
     script:
         "../scripts/filter_meta_by_segs_smk.py"

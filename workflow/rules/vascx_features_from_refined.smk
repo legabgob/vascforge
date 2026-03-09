@@ -15,6 +15,13 @@ rule vascx_features_refined_simple:
         ds_dir = f"{VASCX_VIEW_ROOT}" + "/{dataset}/k{k}/downsampled/{res}px"
     output:
         features = f"{FEATURES_OUT}" + "/{dataset}/k{k}/downsampled/{res}px/vascx_features.tsv"
+    benchmark:
+        "benchmarks/vascx_features_refined_simple/{dataset}_k{k}_{res}px.tsv"
+    params:
+        name = "vascx_features_refined_simple",
+        time = "08:00:00",
+        mem = 16000,
+        threads = 8,
     log:
         "logs/vascx_features/{dataset}_k{k}_{res}px.log"
     shell:
@@ -37,6 +44,13 @@ rule vascx_features_refined_otherdir:
         ds_dir = f"{VASCX_VIEW_ROOT}" + "/{dataset}/{other_dir}/k{k}/downsampled/{res}px"
     output:
         features = f"{FEATURES_OUT}" + "/{dataset}/{other_dir}/k{k}/downsampled/{res}px/vascx_features.tsv"
+    benchmark:
+        "benchmarks/vascx_features_refined_otherdir/{dataset}_{other_dir}_k{k}_{res}px.tsv"
+    params:
+        name = "vascx_features_refined_otherdir",
+        time = "08:00:00",
+        mem = 16000,
+        threads = 8,
     log:
         "logs/vascx_features/{dataset}_{other_dir}_k{k}_{res}px.log"
     shell:

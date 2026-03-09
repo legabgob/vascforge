@@ -80,6 +80,13 @@ rule copy_gt_av_simple:
         src_dir = av_src_dir_simple
     output:
         out_dir = directory("data/{dataset}/gt/raw")
+    benchmark:
+        "benchmarks/copy_gt_av_simple/{dataset}.tsv"
+    params:
+        name = "copy_gt_av_simple",
+        time = "00:30:00",
+        mem = 2000,
+        threads = 1,
     shell:
         r"""
         mkdir -p {output.out_dir}
@@ -93,7 +100,13 @@ rule recolor_gt_av_simple:
         in_dir = "data/{dataset}/gt/raw"
     output:
         out_dir = directory("data/{dataset}/gt/converted")
+    benchmark:
+        "benchmarks/recolor_gt_av_simple/{dataset}.tsv"
     params:
+        name = "recolor_gt_av_simple",
+        time = "00:30:00",
+        mem = 4000,
+        threads = 1,
         mapping = lambda wc: _mapping(wc.dataset),
         ext = ".png"
     script:
@@ -106,7 +119,13 @@ rule downsample_gt_av_simple:
         in_dir = "data/{dataset}/gt/converted"
     output:
         out_dir = directory("data/{dataset}/downsampled/{res}px/GTs")
+    benchmark:
+        "benchmarks/downsample_gt_av_simple/{dataset}_{res}px.tsv"
     params:
+        name = "downsample_gt_av_simple",
+        time = "01:00:00",
+        mem = 8000,
+        threads = 1,
         kind = "gt",
         width = lambda wc: int(wc.res),
         height = lambda wc: int(wc.res),
@@ -129,6 +148,13 @@ rule copy_gt_av_otherdir:
         src_dir = av_src_dir_other
     output:
         out_dir = directory("data/{dataset}/{other_dir}/gt/raw")
+    benchmark:
+        "benchmarks/copy_gt_av_otherdir/{dataset}_{other_dir}.tsv"
+    params:
+        name = "copy_gt_av_otherdir",
+        time = "00:30:00",
+        mem = 2000,
+        threads = 1,
     shell:
         r"""
         mkdir -p {output.out_dir}
@@ -142,7 +168,13 @@ rule recolor_gt_av_otherdir:
         in_dir = "data/{dataset}/{other_dir}/gt/raw"
     output:
         out_dir = directory("data/{dataset}/{other_dir}/gt/converted")
+    benchmark:
+        "benchmarks/recolor_gt_av_otherdir/{dataset}_{other_dir}.tsv"
     params:
+        name = "recolor_gt_av_otherdir",
+        time = "00:30:00",
+        mem = 4000,
+        threads = 1,
         mapping = lambda wc: _mapping(wc.dataset),
         ext = ".png"
     script:
@@ -155,7 +187,13 @@ rule downsample_gt_av_otherdir:
         in_dir = "data/{dataset}/{other_dir}/gt/converted"
     output:
         out_dir = directory("data/{dataset}/{other_dir}/downsampled/{res}px/GTs")
+    benchmark:
+        "benchmarks/downsample_gt_av_otherdir/{dataset}_{other_dir}_{res}px.tsv"
     params:
+        name = "downsample_gt_av_otherdir",
+        time = "01:00:00",
+        mem = 8000,
+        threads = 1,
         kind = "gt",
         width = lambda wc: int(wc.res),
         height = lambda wc: int(wc.res),
@@ -176,6 +214,13 @@ rule copy_gt_vessel:
         src_dir = vessel_src_dir
     output:
         out_dir = directory("data/{dataset}/gt_vessel/raw")
+    benchmark:
+        "benchmarks/copy_gt_vessel/{dataset}.tsv"
+    params:
+        name = "copy_gt_vessel",
+        time = "00:30:00",
+        mem = 2000,
+        threads = 1,
     shell:
         r"""
         mkdir -p {output.out_dir}
@@ -187,7 +232,13 @@ rule downsample_gt_vessel:
         in_dir = "data/{dataset}/gt_vessel/raw"
     output:
         out_dir = directory("data/{dataset}/downsampled/{res}px/GTs_vessel")
+    benchmark:
+        "benchmarks/downsample_gt_vessel/{dataset}_{res}px.tsv"
     params:
+        name = "downsample_gt_vessel",
+        time = "01:00:00",
+        mem = 8000,
+        threads = 1,
         kind = "gt_vessel",
         width = lambda wc: int(wc.res),
         ext = ".png"
@@ -203,6 +254,13 @@ rule copy_gt_vessel_otherdir:
         src_dir = vessel_src_dir_other
     output:
         out_dir = directory("data/{dataset}/{other_dir}/gt_vessel/raw")
+    benchmark:
+        "benchmarks/copy_gt_vessel_otherdir/{dataset}_{other_dir}.tsv"
+    params:
+        name = "copy_gt_vessel_otherdir",
+        time = "00:30:00",
+        mem = 2000,
+        threads = 1,
     shell:
         r"""
         mkdir -p {output.out_dir}
@@ -214,7 +272,13 @@ rule downsample_gt_vessel_otherdir:
         in_dir = "data/{dataset}/{other_dir}/gt_vessel/raw"
     output:
         out_dir = directory("data/{dataset}/{other_dir}/downsampled/{res}px/GTs_vessel")
+    benchmark:
+        "benchmarks/downsample_gt_vessel_otherdir/{dataset}_{other_dir}_{res}px.tsv"
     params:
+        name = "downsample_gt_vessel_otherdir",
+        time = "01:00:00",
+        mem = 8000,
+        threads = 1,
         kind = "gt_vessel",
         width = lambda wc: int(wc.res),
         ext = ".png"

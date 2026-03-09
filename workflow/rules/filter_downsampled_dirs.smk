@@ -12,6 +12,13 @@ rule filter_downsampled_dirs:
     output:
         segs = directory("data/{dataset}/downsampled/{res}px/segs_converted_square"),
         masks = directory("data/{dataset}/downsampled/{res}px/roi_masks_binarized_square"),
+    benchmark:
+        "benchmarks/filter_downsampled_dirs/{dataset}_{res}px.tsv"
+    params:
+        name = "filter_downsampled_dirs",
+        time = "00:30:00",
+        mem = 4000,
+        threads = 1,
     log:
         "logs/filter_downsampled_dirs/{dataset}_{res}px.log"
     run:

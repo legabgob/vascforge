@@ -20,7 +20,13 @@ rule refined_rgb_to_labels:
         in_dir = "results/refined/{dataset}/k{k}/downsampled/{res}px"
     output:
         out_dir = directory(f"{LABELS_OUT_ROOT}" + "/{dataset}/k{k}/downsampled/{res}px")
+    benchmark:
+        "benchmarks/refined_rgb_to_labels/{dataset}_k{k}_{res}px.tsv"
     params:
+        name = "refined_rgb_to_labels",
+        time = "01:00:00",
+        mem = 8000,
+        threads = 1,
         ext = ".png",
         tb = int(LBL_CFG.get("tb", 100)),
         th = int(LBL_CFG.get("th", 200)),

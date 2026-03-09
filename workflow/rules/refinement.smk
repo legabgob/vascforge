@@ -9,6 +9,13 @@ rule refinement:
         masks = "data/{dataset}/downsampled/{res}px/roi_masks_binarized",
     output:
         refined = directory("results/refined/{dataset}/k{k}/downsampled/{res}px")
+    benchmark:
+        "benchmarks/refinement/{dataset}_k{k}_{res}px.tsv"
+    params:
+        name = "refinement",
+        time = "04:00:00",
+        mem = 16000,
+        threads = 4,
     resources:
         gpu_jobs=1
     shell:
