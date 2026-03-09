@@ -16,7 +16,6 @@ rule binarize_roi_masks:
         time = "00:30:00",
         mem = 4000,
         threads = 1,
-        ext = ".png",
+        ext = ".png"
     script:
-        "../scripts/binarize_masks_smk.py"
 

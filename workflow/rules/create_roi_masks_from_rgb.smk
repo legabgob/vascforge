@@ -31,6 +31,6 @@ rule make_roi_masks_from_rgb:
         mem = 4000,
         threads = 1,
         threshold = 5,
-        ext = ".png",
+        ext = ".png"
     script:
         "../scripts/roi_from_rgb_smk.py"
