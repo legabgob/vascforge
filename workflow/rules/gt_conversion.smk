@@ -22,7 +22,7 @@
 # Source locations are config-driven (see config.yaml: ground_truth section).
 #
 from pathlib import Path
-from snakemake.io import directory
+from snakemake.io import directory, temp
 import glob
 
 GT_CFG = config.get("ground_truth", {})
@@ -79,7 +79,7 @@ rule copy_gt_av_simple:
     input:
         src_dir = av_src_dir_simple
     output:
-        out_dir = directory("data/{dataset}/gt/raw")
+        out_dir = temp(directory("data/{dataset}/gt/raw"))
     benchmark:
         "benchmarks/copy_gt_av_simple/{dataset}.tsv"
     params:
@@ -99,7 +99,7 @@ rule recolor_gt_av_simple:
     input:
         in_dir = "data/{dataset}/gt/raw"
     output:
-        out_dir = directory("data/{dataset}/gt/converted")
+        out_dir = temp(directory("data/{dataset}/gt/converted"))
     benchmark:
         "benchmarks/recolor_gt_av_simple/{dataset}.tsv"
     params:
@@ -147,7 +147,7 @@ rule copy_gt_av_otherdir:
     input:
         src_dir = av_src_dir_other
     output:
-        out_dir = directory("data/{dataset}/{other_dir}/gt/raw")
+        out_dir = temp(directory("data/{dataset}/{other_dir}/gt/raw"))
     benchmark:
         "benchmarks/copy_gt_av_otherdir/{dataset}_{other_dir}.tsv"
     params:
@@ -167,7 +167,7 @@ rule recolor_gt_av_otherdir:
     input:
         in_dir = "data/{dataset}/{other_dir}/gt/raw"
     output:
-        out_dir = directory("data/{dataset}/{other_dir}/gt/converted")
+        out_dir = temp(directory("data/{dataset}/{other_dir}/gt/converted"))
     benchmark:
         "benchmarks/recolor_gt_av_otherdir/{dataset}_{other_dir}.tsv"
     params:
@@ -213,7 +213,7 @@ rule copy_gt_vessel:
     input:
         src_dir = vessel_src_dir
     output:
-        out_dir = directory("data/{dataset}/gt_vessel/raw")
+        out_dir = temp(directory("data/{dataset}/gt_vessel/raw"))
     benchmark:
         "benchmarks/copy_gt_vessel/{dataset}.tsv"
     params:
@@ -253,7 +253,7 @@ rule copy_gt_vessel_otherdir:
     input:
         src_dir = vessel_src_dir_other
     output:
-        out_dir = directory("data/{dataset}/{other_dir}/gt_vessel/raw")
+        out_dir = temp(directory("data/{dataset}/{other_dir}/gt_vessel/raw"))
     benchmark:
         "benchmarks/copy_gt_vessel_otherdir/{dataset}_{other_dir}.tsv"
     params:

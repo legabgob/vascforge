@@ -1,4 +1,4 @@
-from snakemake.io import directory
+from snakemake.io import directory, temp
 from pathlib import Path
 
 def get_rgb_dirs(wildcards):
@@ -22,7 +22,7 @@ rule make_roi_masks_from_rgb:
         rgb_dirs = get_rgb_dirs,
         segs_dir = "data/{dataset}/segs_converted"  # Use the merged directory!
     output:
-        out_dir = directory("data/{dataset}/roi_masks")
+        out_dir = temp(directory("data/{dataset}/roi_masks"))
     benchmark:
         "benchmarks/make_roi_masks_from_rgb/{dataset}.tsv"
     params:

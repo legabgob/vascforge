@@ -1,5 +1,5 @@
 # workflow/rules/binarize_masks.smk
-from snakemake.io import directory
+from snakemake.io import directory, temp
 
 rule binarize_roi_masks:
     """
@@ -8,7 +8,7 @@ rule binarize_roi_masks:
     input:
         in_dir = "data/{dataset}/roi_masks"
     output:
-        out_dir = directory("data/{dataset}/roi_masks_binarized")
+        out_dir = temp(directory("data/{dataset}/roi_masks_binarized"))
     benchmark:
         "benchmarks/binarize_roi_masks/{dataset}.tsv"
     params:
