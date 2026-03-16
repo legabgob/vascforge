@@ -1,7 +1,7 @@
 # workflow/rules/vascxgray_to_rgb.smk
 import os
 from pathlib import Path
-from snakemake.io import directory
+from snakemake.io import directory, temp
 
 
 def find_av_dir(wc):
@@ -33,7 +33,7 @@ rule gray_to_rgb:
     input:
         av_dir = find_av_dir
     output:
-        out_dir = directory("data/{dataset}/segs_converted")
+        out_dir = temp(directory("data/{dataset}/segs_converted"))
     benchmark:
         "benchmarks/gray_to_rgb/{dataset}.tsv"
     params:
