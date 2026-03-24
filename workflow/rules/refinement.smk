@@ -1,5 +1,5 @@
 # workflow/rules/refinement.smk
-from snakemake.io import directory
+from snakemake.io import directory, temp
 
 rule refinement:
     input:
@@ -8,7 +8,7 @@ rule refinement:
         segmentations = "data/{dataset}/downsampled/{res}px/segs_converted",
         masks = "data/{dataset}/downsampled/{res}px/roi_masks_binarized",
     output:
-        refined = directory("results/refined/{dataset}/k{k}/downsampled/{res}px")
+        refined = temp(directory("results/refined/{dataset}/k{k}/downsampled/{res}px"))
     benchmark:
         "benchmarks/refinement/{dataset}_k{k}_{res}px.tsv"
     params:

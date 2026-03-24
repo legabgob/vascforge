@@ -34,8 +34,8 @@ def find_meta_like_csv(wc):
 
 rule copy_meta_csv:
     """
-    Copy bounds.csv or meta.csv from legacy seg_legacy into workspace.
-    Always written as data/{dataset}/meta/meta.csv (content may be either format).
+    Symlink bounds.csv or meta.csv from legacy seg_legacy into workspace.
+    Always exposed as data/{dataset}/meta/meta.csv (content may be either format).
     """
     input:
         src = find_meta_like_csv
@@ -51,6 +51,6 @@ rule copy_meta_csv:
     shell:
         r"""
         mkdir -p $(dirname "{output.dst}")
-        cp "{input.src}" "{output.dst}"
+        ln -sf "{input.src}" "{output.dst}"
         """
 

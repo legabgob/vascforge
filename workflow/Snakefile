@@ -350,14 +350,6 @@ rule all:
         # Ensure meta gets copied for all datasets
         expand("data/{dataset}/meta/meta.csv", dataset=DATASETS),
 
-        # Final refinement outputs
-        expand(
-            rules.refinement.output.refined,
-            dataset=REFINE_DATASETS,
-            res=RESOLUTIONS,
-            k=k,
-        ),
-        
         # Ground-truth outputs (optional; enabled via config['ground_truth']['enabled'])
         # A/V GT datasets without other_dir
         expand("data/{dataset}/downsampled/{res}px/GTs", dataset=AV_GT_SIMPLE, res=RESOLUTIONS),

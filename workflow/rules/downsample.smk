@@ -1,5 +1,5 @@
 # workflow/rules/downsample.smk
-from snakemake.io import directory
+from snakemake.io import directory, temp
 
 KINDS = ["segs_converted", "roi_masks_binarized"]
 WIDTHS = [str(r) for r in config.get("resolutions", ["576", "1024"])]
@@ -11,7 +11,7 @@ rule downsample:
     input:
         in_dir = "data/{dataset}/{kind}"
     output:
-        out_dir = directory("data/{dataset}/downsampled/{width}px/{kind}")
+        out_dir = temp(directory("data/{dataset}/downsampled/{width}px/{kind}"))
     benchmark:
         "benchmarks/downsample/{dataset}_{kind}_{width}px.tsv"
     params:
