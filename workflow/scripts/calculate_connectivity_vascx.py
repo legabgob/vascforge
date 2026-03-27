@@ -38,14 +38,10 @@ def get_seg_ids_from_cc(graph: Union[nx.Graph, nx.DiGraph]) -> List[frozenset]:
     return list_seg_ids
 
 
-def get_segments_from_cc(graph: Union[nx.Graph, nx.DiGraph], layer: VesselTreeLayer) -> List:
+def get_segments_from_cc(graph: Union[nx.Graph, nx.DiGraph], dict_seg: dict) -> List:
     """Get list of segments from a connected component."""
     seg_list = []
     list_seg_ids = get_seg_ids_from_cc(graph)
-    
-    ids = [seg.id for seg in layer.segments]
-    segments = layer.segments
-    dict_seg = dict(zip(ids, segments))
     
     for seg_id in list_seg_ids:
         if seg_id in dict_seg:
@@ -54,14 +50,19 @@ def get_segments_from_cc(graph: Union[nx.Graph, nx.DiGraph], layer: VesselTreeLa
     return seg_list
 
 
-def get_graph_total_length(graph: Union[nx.Graph, nx.DiGraph], layer: VesselTreeLayer) -> float:
+def get_graph_total_length(graph: Union[nx.Graph, nx.DiGraph], dict_seg: dict) -> float:
     """Calculate total length of segments in a connected component."""
-    seg_list = get_segments_from_cc(graph, layer)
+    seg_list = get_segments_from_cc(graph, dict_seg)
     return sum([seg.length for seg in seg_list])
 
 
-def get_connected_components(layer: VesselTreeLayer, sort: bool = True) -> List[Union[nx.Graph, nx.DiGraph]]:
-    """Get connected components from a vessel layer."""
+def get_connected_components(layer: VesselTreeLayer, sort: bool = True, dict_seg: dict = None) -> List[Union[nx.Graph, nx.DiGraph]]:
+    """Get connected components from a vessel layer.
+
+    Uses subgraph *views* (no copying) to avoid duplicating graph data in
+    memory.  Pass a pre-built ``dict_seg`` mapping to avoid rebuilding it
+    when sorting is required.
+    """
     graph = layer.digraph  # Use directed graph
     
     if nx.is_directed(graph):
@@ -69,11 +70,14 @@ def get_connected_components(layer: VesselTreeLayer, sort: bool = True) -> List[
     else:
         components = nx.connected_components(graph)
     
-    cc_list = [graph.subgraph(c).copy() for c in components]
+    # Use views instead of copies to avoid duplicating graph data in memory
+    cc_list = [graph.subgraph(c) for c in components]
     
     if sort:
+        if dict_seg is None:
+            dict_seg = {seg.id: seg for seg in layer.segments}
         # Sort by total length (descending)
-        return sorted(cc_list, key=lambda x: get_graph_total_length(x, layer), reverse=True)
+        return sorted(cc_list, key=lambda x: get_graph_total_length(x, dict_seg), reverse=True)
     else:
         return cc_list
 
@@ -97,7 +101,7 @@ def get_cc_subset_touching_od(layer: VesselTreeLayer, cc_list: List[Union[nx.Gra
 # Connectivity metrics calculation
 # ============================================================================
 
-def calculate_connected_components_metrics(layer: VesselTreeLayer) -> Dict:
+def calculate_connected_components_metrics(layer: VesselTreeLayer, cc_list: List = None, dict_seg: dict = None) -> Dict:
     """
     Calculate detailed metrics about connected components.
     
@@ -108,8 +112,12 @@ def calculate_connected_components_metrics(layer: VesselTreeLayer) -> Dict:
     - largest_component_nodes: Size of largest component (nodes)
     - largest_component_length: Size of largest component (length)
     """
-    # Get connected components
-    cc_list = get_connected_components(layer, sort=True)
+    if cc_list is None:
+        if dict_seg is None:
+            dict_seg = {seg.id: seg for seg in layer.segments}
+        cc_list = get_connected_components(layer, sort=True, dict_seg=dict_seg)
+    elif dict_seg is None:
+        dict_seg = {seg.id: seg for seg in layer.segments}
     num_components = len(cc_list)
     
     component_sizes_nodes = []
@@ -121,7 +129,7 @@ def calculate_connected_components_metrics(layer: VesselTreeLayer) -> Dict:
         component_sizes_nodes.append(num_nodes)
         
         # Total segment length
-        total_length = get_graph_total_length(cc, layer)
+        total_length = get_graph_total_length(cc, dict_seg)
         component_sizes_length.append(total_length)
     
     # Calculate total graph stats
@@ -140,7 +148,7 @@ def calculate_connected_components_metrics(layer: VesselTreeLayer) -> Dict:
     }
 
 
-def calculate_optic_disc_connectivity(layer: VesselTreeLayer) -> Dict:
+def calculate_optic_disc_connectivity(layer: VesselTreeLayer, cc_list: List = None, dict_seg: dict = None) -> Dict:
     """
     Calculate proportion of graph connected to the optic disc.
     
@@ -151,19 +159,23 @@ def calculate_optic_disc_connectivity(layer: VesselTreeLayer) -> Dict:
     - proportion_nodes: Proportion of nodes connected to optic disc
     - proportion_length: Proportion of total length connected to optic disc
     """
-    # Get all connected components
-    cc_list = get_connected_components(layer, sort=True)
+    if cc_list is None:
+        if dict_seg is None:
+            dict_seg = {seg.id: seg for seg in layer.segments}
+        cc_list = get_connected_components(layer, sort=True, dict_seg=dict_seg)
+    elif dict_seg is None:
+        dict_seg = {seg.id: seg for seg in layer.segments}
     
     # Get components touching optic disc
     cc_touching_od = get_cc_subset_touching_od(layer, cc_list)
     
     # Calculate metrics for components touching OD
     connected_nodes = sum(cc.number_of_nodes() for cc in cc_touching_od)
-    connected_length = sum(get_graph_total_length(cc, layer) for cc in cc_touching_od)
+    connected_length = sum(get_graph_total_length(cc, dict_seg) for cc in cc_touching_od)
     
     # Total graph stats
     total_nodes = layer.graph.number_of_nodes()
-    total_length = sum(get_graph_total_length(cc, layer) for cc in cc_list)
+    total_length = sum(get_graph_total_length(cc, dict_seg) for cc in cc_list)
     
     return {
         'num_components_touching_od': len(cc_touching_od),
@@ -177,19 +189,24 @@ def calculate_optic_disc_connectivity(layer: VesselTreeLayer) -> Dict:
     }
 
 
-def calculate_component_size_distribution(layer: VesselTreeLayer) -> pd.DataFrame:
+def calculate_component_size_distribution(layer: VesselTreeLayer, cc_list: List = None, dict_seg: dict = None) -> pd.DataFrame:
     """
     Calculate detailed size distribution of connected components.
     
     Returns DataFrame with one row per component.
     """
-    cc_list = get_connected_components(layer, sort=True)
+    if cc_list is None:
+        if dict_seg is None:
+            dict_seg = {seg.id: seg for seg in layer.segments}
+        cc_list = get_connected_components(layer, sort=True, dict_seg=dict_seg)
+    elif dict_seg is None:
+        dict_seg = {seg.id: seg for seg in layer.segments}
     
     component_data = []
     for i, cc in enumerate(cc_list, 1):
         num_nodes = cc.number_of_nodes()
         num_edges = cc.number_of_edges()
-        total_length = get_graph_total_length(cc, layer)
+        total_length = get_graph_total_length(cc, dict_seg)
         
         # Check if touches optic disc
         touches_od = cc_out_of_optic_disc(layer, cc)
@@ -268,13 +285,15 @@ def process_single_image(
     
     # Calculate metrics
     print("Calculating connected components metrics...")
-    cc_metrics = calculate_connected_components_metrics(layer)
+    dict_seg = {seg.id: seg for seg in layer.segments}
+    cc_list = get_connected_components(layer, sort=True, dict_seg=dict_seg)
+    cc_metrics = calculate_connected_components_metrics(layer, cc_list=cc_list, dict_seg=dict_seg)
     
     print("Calculating optic disc connectivity...")
-    od_metrics = calculate_optic_disc_connectivity(layer)
+    od_metrics = calculate_optic_disc_connectivity(layer, cc_list=cc_list, dict_seg=dict_seg)
     
     print("Calculating component size distribution...")
-    component_df = calculate_component_size_distribution(layer)
+    component_df = calculate_component_size_distribution(layer, cc_list=cc_list, dict_seg=dict_seg)
     
     # Combine metrics
     all_metrics = {
@@ -373,10 +392,13 @@ def process_from_vascx_loader(
     # VascX creates a combined layer automatically
     layer = retina.vessels  # Use .vessels for combined, not .arteries or .veins
     
-    # Calculate metrics
-    cc_metrics = calculate_connected_components_metrics(layer)
-    od_metrics = calculate_optic_disc_connectivity(layer)
-    component_df = calculate_component_size_distribution(layer)
+    # Calculate metrics — build dict_seg and cc_list once and share across all
+    # metric functions to avoid redundant graph traversals and dict construction.
+    dict_seg = {seg.id: seg for seg in layer.segments}
+    cc_list = get_connected_components(layer, sort=True, dict_seg=dict_seg)
+    cc_metrics = calculate_connected_components_metrics(layer, cc_list=cc_list, dict_seg=dict_seg)
+    od_metrics = calculate_optic_disc_connectivity(layer, cc_list=cc_list, dict_seg=dict_seg)
+    component_df = calculate_component_size_distribution(layer, cc_list=cc_list, dict_seg=dict_seg)
     
     # Combine and save
     all_metrics = {

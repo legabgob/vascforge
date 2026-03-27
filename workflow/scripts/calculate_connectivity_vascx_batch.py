@@ -5,6 +5,7 @@ Avoids per-image job explosion by processing all images at once.
 """
 
 import argparse
+import gc
 import json
 import numpy as np
 import pandas as pd
@@ -31,14 +32,10 @@ def get_seg_ids_from_cc(graph):
     return list_seg_ids
 
 
-def get_segments_from_cc(graph, layer: VesselTreeLayer):
+def get_segments_from_cc(graph, dict_seg: dict):
     """Get list of segments from a connected component."""
     seg_list = []
     list_seg_ids = get_seg_ids_from_cc(graph)
-    
-    ids = [seg.id for seg in layer.segments]
-    segments = layer.segments
-    dict_seg = dict(zip(ids, segments))
     
     for seg_id in list_seg_ids:
         if seg_id in dict_seg:
@@ -47,14 +44,19 @@ def get_segments_from_cc(graph, layer: VesselTreeLayer):
     return seg_list
 
 
-def get_graph_total_length(graph, layer: VesselTreeLayer):
+def get_graph_total_length(graph, dict_seg: dict):
     """Calculate total length of segments in a connected component."""
-    seg_list = get_segments_from_cc(graph, layer)
+    seg_list = get_segments_from_cc(graph, dict_seg)
     return sum([seg.length for seg in seg_list])
 
 
-def get_connected_components(layer: VesselTreeLayer, sort: bool = True):
-    """Get connected components from a vessel layer."""
+def get_connected_components(layer: VesselTreeLayer, sort: bool = True, dict_seg: dict = None):
+    """Get connected components from a vessel layer.
+
+    Uses subgraph *views* (no copying) to avoid duplicating graph data in
+    memory.  Pass a pre-built ``dict_seg`` mapping to avoid rebuilding it
+    when sorting is required.
+    """
     graph = layer.digraph
     
     if nx.is_directed(graph):
@@ -62,10 +64,13 @@ def get_connected_components(layer: VesselTreeLayer, sort: bool = True):
     else:
         components = nx.connected_components(graph)
     
-    cc_list = [graph.subgraph(c).copy() for c in components]
+    # Use views instead of copies to avoid duplicating graph data in memory
+    cc_list = [graph.subgraph(c) for c in components]
     
     if sort:
-        return sorted(cc_list, key=lambda x: get_graph_total_length(x, layer), reverse=True)
+        if dict_seg is None:
+            dict_seg = {seg.id: seg for seg in layer.segments}
+        return sorted(cc_list, key=lambda x: get_graph_total_length(x, dict_seg), reverse=True)
     else:
         return cc_list
 
@@ -94,8 +99,12 @@ def calculate_image_metrics(layer: VesselTreeLayer):
     Calculate connectivity metrics for a single image.
     Returns dict with key metrics.
     """
-    # Get connected components
-    cc_list = get_connected_components(layer, sort=True)
+    # Build the segment lookup dict once per image to avoid rebuilding it for
+    # every connected component during sorting and length calculations.
+    dict_seg = {seg.id: seg for seg in layer.segments}
+
+    # Get connected components (subgraph views, no copies)
+    cc_list = get_connected_components(layer, sort=True, dict_seg=dict_seg)
     num_components = len(cc_list)
     
     if num_components == 0:
@@ -113,7 +122,7 @@ def calculate_image_metrics(layer: VesselTreeLayer):
     
     # Calculate component sizes
     component_sizes_nodes = [cc.number_of_nodes() for cc in cc_list]
-    component_sizes_length = [get_graph_total_length(cc, layer) for cc in cc_list]
+    component_sizes_length = [get_graph_total_length(cc, dict_seg) for cc in cc_list]
     
     total_nodes = layer.graph.number_of_nodes()
     total_edges = layer.graph.number_of_edges()
@@ -122,7 +131,7 @@ def calculate_image_metrics(layer: VesselTreeLayer):
     # Optic disc connectivity
     cc_touching_od = get_cc_subset_touching_od(layer, cc_list)
     connected_nodes = sum(cc.number_of_nodes() for cc in cc_touching_od)
-    connected_length = sum(get_graph_total_length(cc, layer) for cc in cc_touching_od)
+    connected_length = sum(get_graph_total_length(cc, dict_seg) for cc in cc_touching_od)
     
     return {
         'num_components': num_components,
@@ -178,6 +187,7 @@ def process_dataset_batch(
     # caught per-image and don't kill the entire batch job.
     for i in range(len(loader)):
         image_id = f"index_{i}"  # fallback ID if loading fails before we get retina.id
+        retina = None
         try:
             retina = loader[i]  # ← inside try/except so VascX init errors are caught
             image_id = retina.id
@@ -203,6 +213,11 @@ def process_dataset_batch(
                 'image_id': image_id,
                 'error': str(e)
             })
+        finally:
+            # Explicitly release the retina object and its graph data so memory
+            # from each image is freed before loading the next one.
+            del retina
+            gc.collect()
     
     print(f"\nProcessed {len(results)} images successfully")
     if failed:
