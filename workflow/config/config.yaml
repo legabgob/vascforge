@@ -89,6 +89,7 @@ vascx:
   features_refined_out: "results/vascx_features_refined"
   features_unrefined_out: "results/vascx_features_unrefined"
   connectivity_out: "results/connectivity_metrics"
+  connectivity_batch_size: 250
   n_jobs: 64
   feature_set: "bergmann"
   av_subfolder: "av"
