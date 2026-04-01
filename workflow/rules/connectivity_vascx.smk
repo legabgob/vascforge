@@ -11,6 +11,7 @@ from pathlib import Path
 VASCX_VIEW_ROOT = config.get("vascx", {}).get("dataset_view_root", "results/vascx_datasets")
 VASCX_UNREFINED_ROOT = config.get("vascx", {}).get("dataset_unrefined_root", "results/vascx_datasets_unrefined")
 CONNECTIVITY_OUT = config.get("vascx", {}).get("connectivity_out", "results/connectivity_metrics")
+CONNECTIVITY_BATCH_SIZE = config.get("vascx", {}).get("connectivity_batch_size", 250)
 
 # Expects: SIMPLE_DATASETS, OTHERDIR_DATASETS, RESOLUTIONS, K_VALUES, OTHERDIRS
 
@@ -35,7 +36,8 @@ rule connectivity_refined_simple:
         time = "04:00:00",
         mem = 8000,
         threads = 1,
-        output_dir = f"{CONNECTIVITY_OUT}" + "/refined/{dataset}/k{k}/downsampled/{res}px"
+        output_dir = f"{CONNECTIVITY_OUT}" + "/refined/{dataset}/k{k}/downsampled/{res}px",
+        batch_size = CONNECTIVITY_BATCH_SIZE
     log:
         "logs/connectivity/refined/{dataset}_k{k}_{res}px.log"
     shell:
@@ -45,6 +47,7 @@ rule connectivity_refined_simple:
             {params.output_dir} \
             --av-subfolder av \
             --fundus-subfolder rgb \
+            --batch-size {params.batch_size} \
             2>&1 | tee {log}
         """
 
@@ -65,7 +68,8 @@ rule connectivity_refined_otherdir:
         time = "04:00:00",
         mem = 8000,
         threads = 1,
-        output_dir = f"{CONNECTIVITY_OUT}" + "/refined/{dataset}/{other_dir}/k{k}/downsampled/{res}px"
+        output_dir = f"{CONNECTIVITY_OUT}" + "/refined/{dataset}/{other_dir}/k{k}/downsampled/{res}px",
+        batch_size = CONNECTIVITY_BATCH_SIZE
     log:
         "logs/connectivity/refined/{dataset}_{other_dir}_k{k}_{res}px.log"
     shell:
@@ -75,6 +79,7 @@ rule connectivity_refined_otherdir:
             {params.output_dir} \
             --av-subfolder av \
             --fundus-subfolder rgb \
+            --batch-size {params.batch_size} \
             2>&1 | tee {log}
         """
 
@@ -99,7 +104,8 @@ rule connectivity_unrefined_simple:
         time = "04:00:00",
         mem = 8000,
         threads = 1,
-        output_dir = f"{CONNECTIVITY_OUT}" + "/unrefined/{dataset}/downsampled/{res}px"
+        output_dir = f"{CONNECTIVITY_OUT}" + "/unrefined/{dataset}/downsampled/{res}px",
+        batch_size = CONNECTIVITY_BATCH_SIZE
     log:
         "logs/connectivity/unrefined/{dataset}_{res}px.log"
     shell:
@@ -109,6 +115,7 @@ rule connectivity_unrefined_simple:
             {params.output_dir} \
             --av-subfolder av \
             --fundus-subfolder rgb \
+            --batch-size {params.batch_size} \
             2>&1 | tee {log}
         """
 
@@ -129,7 +136,8 @@ rule connectivity_unrefined_otherdir:
         time = "04:00:00",
         mem = 8000,
         threads = 1,
-        output_dir = f"{CONNECTIVITY_OUT}" + "/unrefined/{dataset}/{other_dir}/downsampled/{res}px"
+        output_dir = f"{CONNECTIVITY_OUT}" + "/unrefined/{dataset}/{other_dir}/downsampled/{res}px",
+        batch_size = CONNECTIVITY_BATCH_SIZE
     log:
         "logs/connectivity/unrefined/{dataset}_{other_dir}_{res}px.log"
     shell:
@@ -139,6 +147,7 @@ rule connectivity_unrefined_otherdir:
             {params.output_dir} \
             --av-subfolder av \
             --fundus-subfolder rgb \
+            --batch-size {params.batch_size} \
             2>&1 | tee {log}
         """
 

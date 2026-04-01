@@ -5,6 +5,7 @@ Avoids per-image job explosion by processing all images at once.
 """
 
 import argparse
+import errno
 import gc
 import json
 import numpy as np
@@ -158,79 +159,122 @@ def process_dataset_batch(
     dataset_path: Path,
     output_dir: Path,
     av_subfolder: str = 'av',
-    fundus_subfolder: str = 'rgb'
+    fundus_subfolder: str = 'rgb',
+    batch_size: int = 250
 ):
     """
     Process all images in a VascX dataset and output summary statistics.
-    
-    This processes the ENTIRE dataset in one go, avoiding per-image job explosion.
+
+    Images are processed in fixed-size batches (controlled by ``batch_size``)
+    to bound peak memory usage.  Partial results for each batch are written to
+    a temporary CSV inside ``output_dir`` and then concatenated at the end, so
+    that the in-memory ``results`` list never grows beyond ``batch_size`` rows.
     """
     print(f"="*70)
     print(f"BATCH CONNECTIVITY ANALYSIS")
     print(f"="*70)
     print(f"Dataset: {dataset_path}")
-    
+    print(f"Batch size: {batch_size}")
+
     # Load dataset
     loader = RetinaLoader.from_folder(
         dataset_path,
         av_subfolder=av_subfolder,
         fundus_subfolder=fundus_subfolder
     )
-    
-    print(f"Found {len(loader)} images to process")
-    
-    # Process all images
-    results = []
+
+    n_total = len(loader)
+    print(f"Found {n_total} images to process")
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    partial_dir = output_dir / "_partial_batches"
+    partial_dir.mkdir(parents=True, exist_ok=True)
+
     failed = []
-    
-    # Use index-based iteration so loader crashes (e.g. NaN in disc/fovea) are
-    # caught per-image and don't kill the entire batch job.
-    for i in range(len(loader)):
-        image_id = f"index_{i}"  # fallback ID if loading fails before we get retina.id
-        retina = None
-        try:
-            retina = loader[i]  # ← inside try/except so VascX init errors are caught
-            image_id = retina.id
-            print(f"[{i+1}/{len(loader)}] Processing {image_id}...", end=' ')
-            
-            # Use arteries layer (where combined vessel masks are loaded by VascX)
-            layer = retina.arteries
-            if layer is None or layer.graph is None or layer.graph.number_of_nodes() == 0:
-                layer = retina.veins  # fallback
+    n_processed = 0
+
+    # Split indices into fixed-size batches
+    batch_indices = [
+        range(start, min(start + batch_size, n_total))
+        for start in range(0, n_total, batch_size)
+    ]
+    n_batches = len(batch_indices)
+
+    for batch_num, indices in enumerate(batch_indices, start=1):
+        batch_results = []
+        print(f"\n--- Batch {batch_num}/{n_batches} (images {indices.start + 1}–{indices.stop}) ---")
+
+        # Use index-based iteration so loader crashes (e.g. NaN in disc/fovea)
+        # are caught per-image and don't kill the entire batch job.
+        for i in indices:
+            image_id = f"index_{i}"  # fallback ID if loading fails before we get retina.id
+            retina = None
+            try:
+                retina = loader[i]  # ← inside try/except so VascX init errors are caught
+                image_id = retina.id
+                print(f"[{i+1}/{n_total}] Processing {image_id}...", end=' ')
+
+                # Use arteries layer (where combined vessel masks are loaded by VascX)
+                layer = retina.arteries
                 if layer is None or layer.graph is None or layer.graph.number_of_nodes() == 0:
-                    raise ValueError("No vessel data found in arteries or veins layer")
-            
-            # Calculate metrics
-            metrics = calculate_image_metrics(layer)
-            metrics['image_id'] = image_id
-            
-            results.append(metrics)
-            print(f"✓ ({metrics['num_components']} CCs)")
-            
-        except Exception as e:
-            print(f"✗ FAILED: {e}")
-            failed.append({
-                'image_id': image_id,
-                'error': str(e)
-            })
-        finally:
-            # Explicitly release the retina object and its graph data so memory
-            # from each image is freed before loading the next one.
-            del retina
-            gc.collect()
-    
-    print(f"\nProcessed {len(results)} images successfully")
+                    layer = retina.veins  # fallback
+                    if layer is None or layer.graph is None or layer.graph.number_of_nodes() == 0:
+                        raise ValueError("No vessel data found in arteries or veins layer")
+
+                # Calculate metrics
+                metrics = calculate_image_metrics(layer)
+                metrics['image_id'] = image_id
+
+                batch_results.append(metrics)
+                print(f"✓ ({metrics['num_components']} CCs)")
+
+            except Exception as e:
+                print(f"✗ FAILED: {e}")
+                failed.append({
+                    'image_id': image_id,
+                    'error': str(e)
+                })
+            finally:
+                # Explicitly release the retina object and its graph data so
+                # memory from each image is freed before loading the next one.
+                del retina
+                gc.collect()
+
+        # Write this batch's results to a partial CSV, then free memory
+        if batch_results:
+            n_processed += len(batch_results)
+            partial_csv = partial_dir / f"batch_{batch_num:04d}.csv"
+            pd.DataFrame(batch_results).to_csv(partial_csv, index=False)
+            print(f"  → Saved {len(batch_results)} rows to {partial_csv}")
+
+        del batch_results
+        gc.collect()
+
+    print(f"\nProcessed {n_processed} images successfully")
     if failed:
         print(f"Failed: {len(failed)} images")
-    
-    # Convert to DataFrame
-    df = pd.DataFrame(results)
+
+    # Concatenate all partial CSVs into the final DataFrame
+    partial_csvs = sorted(partial_dir.glob("batch_[0-9]*.csv"))
+    if partial_csvs:
+        df = pd.concat([pd.read_csv(p) for p in partial_csvs], ignore_index=True)
+    else:
+        df = pd.DataFrame()
+
+    # Clean up partial batch files now that they have been merged
+    for p in partial_csvs:
+        p.unlink()
+    try:
+        partial_dir.rmdir()
+    except OSError as exc:
+        if exc.errno != errno.ENOTEMPTY:
+            raise
     
     # Calculate summary statistics
     summary_stats = {
         'dataset_info': {
             'dataset_path': str(dataset_path),
-            'n_images': len(results),
+            'n_images': n_processed,
             'n_failed': len(failed),
         },
         'connectivity_stats': {
@@ -318,6 +362,8 @@ def main():
     parser.add_argument('output_dir', type=Path, help='Output directory for results')
     parser.add_argument('--av-subfolder', default='av', help='Vessel masks subfolder')
     parser.add_argument('--fundus-subfolder', default='rgb', help='Fundus images subfolder')
+    parser.add_argument('--batch-size', type=int, default=250,
+                        help='Number of images to process per batch (default: 250)')
     
     args = parser.parse_args()
     
@@ -325,7 +371,8 @@ def main():
         args.dataset_path,
         args.output_dir,
         args.av_subfolder,
-        args.fundus_subfolder
+        args.fundus_subfolder,
+        args.batch_size
     )
 
 
